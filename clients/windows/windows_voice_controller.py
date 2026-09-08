@@ -181,9 +181,10 @@ class VoiceController:
     def __init__(self) -> None:
         from google import genai
         gemini_key = os.getenv("GEMINI_API_KEY")
-        if not gemini_key:
-            raise RuntimeError("Set GEMINI_API_KEY before starting the Windows voice controller.")
+        if not gemini_key or gemini_key == "your_gemini_api_key":
+            raise RuntimeError("Please set your GEMINI_API_KEY in .env before running Jarvis (obtain a free key from https://aistudio.google.com/).")
         self.gclient = genai.Client(api_key=gemini_key)
+
         try:
             from jarvis_agent import JarvisAgent
             self.agent = JarvisAgent(speak_jarvis)
@@ -222,6 +223,8 @@ class VoiceController:
             with open(path, "rb") as audio_file:
                 audio_data = audio_file.read()
 
+            last_err = None
+
             # 1. Try SpeechRecognition for instant STT
             try:
                 import speech_recognition as sr
@@ -232,13 +235,13 @@ class VoiceController:
                     if text and len(text.strip()) > 1:
                         print(f">> [Recognized Voice]: '{text.strip()}'", flush=True)
                         return text.strip()
-            except Exception:
-                pass
+            except Exception as e:
+                last_err = e
 
             # 2. Try Gemini Speech STT
             try:
                 response = self.gclient.models.generate_content(
-                    model="gemini-2.5-flash",
+                    model="gemini-3.6-flash",
                     contents=[
                         types.Part.from_bytes(data=audio_data, mime_type="audio/wav"),
                         "Transcribe the audio accurately into English text. Output ONLY the raw transcribed text. If there is no audible human voice, output nothing."
@@ -247,7 +250,7 @@ class VoiceController:
                 if response and response.text:
                     return (response.text or "").strip()
             except Exception as ex:
-                pass
+                last_err = ex
 
             # 3. Try local faster-whisper if available
             try:
@@ -259,8 +262,8 @@ class VoiceController:
                 if fw_text:
                     print(f">> [Local Faster-Whisper Used]: '{fw_text}'", flush=True)
                     return fw_text
-            except Exception:
-                pass
+            except Exception as e:
+                last_err = e
 
             # 4. Fallback to free Google Speech Recognition
             try:
@@ -273,7 +276,7 @@ class VoiceController:
                         print(f">> [Fallback Local Transcriber Used]: '{text}'", flush=True)
                         return text
             except Exception as sr_err:
-                pass
+                last_err = sr_err
 
             if last_err:
                 print(f"Transcription model error: {last_err}")
@@ -456,24 +459,31 @@ class VoiceController:
             self.audio.terminate()
 
 
-def play_chime() -> None:
-    """Plays a crisp double-tone futuristic wake chime."""
+def play_chime(frequency: int = 880, duration: float = 0.1) -> None:
+    """Plays a crisp tone or futuristic wake chime."""
     try:
         import sounddevice as sd
         import numpy as np
         sr = 44100
-        # 880Hz -> 1320Hz ascending sci-fi chime
-        t1 = np.linspace(0, 0.1, int(sr * 0.1), False)
-        t2 = np.linspace(0, 0.15, int(sr * 0.15), False)
-        tone1 = np.sin(2 * np.pi * 880 * t1) * 0.6
-        tone2 = np.sin(2 * np.pi * 1320 * t2) * 0.7
-        audio = np.concatenate([tone1, tone2]).astype(np.float32)
+        if frequency == 880 and duration == 0.1:
+            # 880Hz -> 1320Hz ascending sci-fi chime
+            t1 = np.linspace(0, 0.1, int(sr * 0.1), False)
+            t2 = np.linspace(0, 0.15, int(sr * 0.15), False)
+            tone1 = np.sin(2 * np.pi * 880 * t1) * 0.6
+            tone2 = np.sin(2 * np.pi * 1320 * t2) * 0.7
+            audio = np.concatenate([tone1, tone2]).astype(np.float32)
+        else:
+            t = np.linspace(0, duration, int(sr * duration), False)
+            audio = (np.sin(2 * np.pi * frequency * t) * 0.5).astype(np.float32)
         sd.play(audio, sr)
         sd.wait()
     except Exception:
-        import winsound
-        winsound.Beep(880, 150)
-        winsound.Beep(1320, 200)
+        try:
+            import winsound
+            winsound.Beep(int(frequency), int(duration * 1000))
+        except Exception:
+            pass
+
 
 
 def play_done_chime() -> None:
