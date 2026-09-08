@@ -339,6 +339,12 @@ class VoiceController:
                 from jarvis_brain import BrainTools
                 search_res = BrainTools.web_search(text_lower)
                 print(f"[Jarvis Search Results]: {search_res[:150]}...", flush=True)
+                # Pass retrieved search facts to LLM or speak directly
+                if hasattr(self, 'agent') and self.agent is not None:
+                    self.agent.handle_user_query(f"Answer concisely based on search data: {search_res[:400]}")
+                else:
+                    first_line = search_res.split('\n')[0] if search_res else "No results found."
+                    speak_jarvis(first_line)
             threading.Thread(target=_async_gk, daemon=True).start()
             executed = True
         elif " on " in text_lower and any(b in text_lower for b in ["chrome", "edge", "brave", "firefox"]):
