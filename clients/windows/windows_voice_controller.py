@@ -181,9 +181,10 @@ class VoiceController:
     def __init__(self) -> None:
         from google import genai
         gemini_key = os.getenv("GEMINI_API_KEY")
-        if not gemini_key:
-            raise RuntimeError("Set GEMINI_API_KEY before starting the Windows voice controller.")
+        if not gemini_key or gemini_key == "your_gemini_api_key":
+            raise RuntimeError("Please set your GEMINI_API_KEY in .env before running Jarvis (obtain a free key from https://aistudio.google.com/).")
         self.gclient = genai.Client(api_key=gemini_key)
+
         try:
             from jarvis_agent import JarvisAgent
             self.agent = JarvisAgent(speak_jarvis)
