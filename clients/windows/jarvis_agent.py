@@ -40,7 +40,7 @@ class JarvisAgent:
             if self.gemini_key:
                 self.gclient = genai.Client(api_key=self.gemini_key)
                 self.chat = self.gclient.chats.create(
-                    model="gemini-2.5-flash",
+                    model="gemini-2.0-flash",
                     config=types.GenerateContentConfig(
                         system_instruction=JARVIS_HUMAN_PROMPT,
                         tools=ALL_TOOLS,
