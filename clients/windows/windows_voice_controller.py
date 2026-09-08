@@ -132,23 +132,16 @@ def get_local_jarvis_engine():
 
 
 def speak_jarvis(text: str) -> None:
-    """Instant Zero-Lag TTS router: Windows Native SAPI5 -> API Cloud Speakers"""
-    # 1. Instant Windows SAPI5 Speech (Zero-delay execution)
-    try:
-        import pyttsx3
-        engine = pyttsx3.init()
-        voices = engine.getProperty('voices')
-        for v in voices:
-            v_name = v.name.lower()
-            if 'george' in v_name or 'david' in v_name or 'hazel' in v_name or 'male' in v_name:
-                engine.setProperty('voice', v.id)
-                break
-        engine.setProperty('rate', 175)
-        engine.say(text)
-        engine.runAndWait()
-        return
-    except Exception as e:
-        print(f"[Native Speech Note]: {e}", flush=True)
+    """Instant TTS router: Local XTTS v2 (jarvis_reference.wav) -> ElevenLabs -> British Male PyTTSX3"""
+    # 1. Local XTTS v2 Voice Cloning from jarvis_reference.wav (Paul Bettany / JARVIS)
+    engine = get_local_jarvis_engine()
+    if engine and engine.model is not None:
+        try:
+            print(f"[Jarvis Voice Cloned]: Speaking via jarvis_reference.wav...", flush=True)
+            engine.speak_stream(text)
+            return
+        except Exception as ex:
+            print(f"[Local Voice Clone Note]: {ex}", flush=True)
 
     eleven_key = os.getenv("ELEVENLABS_API_KEY")
     jarvis_voice_id = os.getenv("ELEVENLABS_JARVIS_VOICE_ID")
@@ -175,6 +168,32 @@ def speak_jarvis(text: str) -> None:
                 return
         except Exception:
             pass
+
+    # 3. Fallback: Male British Voice (pyttsx3) - strictly avoiding female Siri-like voices
+    try:
+        import pyttsx3
+        py_engine = pyttsx3.init()
+        voices = py_engine.getProperty('voices')
+        selected_voice = False
+        for v in voices:
+            v_name = v.name.lower()
+            if ('george' in v_name or 'david' in v_name or 'daniel' in v_name or 'uk' in v_name or 'british' in v_name or 'male' in v_name) and 'female' not in v_name and 'siri' not in v_name:
+                py_engine.setProperty('voice', v.id)
+                selected_voice = True
+                break
+        if not selected_voice and voices:
+            for v in voices:
+                if 'female' not in v.name.lower() and 'siri' not in v.name.lower():
+                    py_engine.setProperty('voice', v.id)
+                    break
+        py_engine.setProperty('rate', 165)
+        py_engine.say(text)
+        py_engine.runAndWait()
+        return
+    except Exception as e:
+        print(f"[Native Speech Note]: {e}", flush=True)
+
+
 
 
 class VoiceController:

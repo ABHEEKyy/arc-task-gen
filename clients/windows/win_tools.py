@@ -179,16 +179,29 @@ class WindowsController:
         except Exception:
             pass
 
-        # 5. Fallback: Windows Start-Process via PowerShell
-        try:
-            cmd = f'powershell -Command "Start-Process \'{clean_name}\'"'
-            res = subprocess.run(cmd, shell=True, capture_output=True, text=True)
-            if res.returncode == 0:
-                return f"Launched {clean_name}"
-            else:
-                return f"Executable '{app_name}' not found: {res.stderr.strip()}"
-        except Exception as e:
-            return f"Execution error: {str(e)}"
+        # 5. Cross-platform fallback: macOS 'open' / Windows 'start' / PowerShell
+        import sys
+        if sys.platform == "darwin":
+            try:
+                res = subprocess.run(["open", "-a", clean_name], capture_output=True, text=True)
+                if res.returncode == 0:
+                    return f"Launched {clean_name}"
+                res = subprocess.run(["open", clean_name], capture_output=True, text=True)
+                if res.returncode == 0:
+                    return f"Opened {clean_name}"
+                return f"Application '{app_name}' not found on macOS."
+            except Exception as e:
+                return f"Execution error: {str(e)}"
+        else:
+            try:
+                cmd = f'powershell -Command "Start-Process \'{clean_name}\'"'
+                res = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+                if res.returncode == 0:
+                    return f"Launched {clean_name}"
+                else:
+                    return f"Executable '{app_name}' not found: {res.stderr.strip()}"
+            except Exception as e:
+                return f"Execution error: {str(e)}"
 
     @staticmethod
     def system_volume(action: str, amount: int = 10) -> str:
