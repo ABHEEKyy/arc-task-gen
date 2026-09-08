@@ -1,21 +1,39 @@
 """Explicit Windows actions available to the voice controller."""
 
 import os
+import subprocess
+import webbrowser
 from urllib.parse import urlparse
-
 import pyautogui
 
 pyautogui.FAILSAFE = True
 
-ALLOWED_APPS = {
-    "calculator": "calc.exe",
-    "calc": "calc.exe",
-    "notepad": "notepad.exe",
-    "paint": "mspaint.exe",
-    "explorer": "explorer.exe",
-    "file explorer": "explorer.exe",
+# Common Windows executable and URI aliases
+APP_ALIASES = {
+    "chrome": "chrome",
+    "google chrome": "chrome",
+    "browser": "https://google.com",
+    "youtube": "https://youtube.com",
+    "spotify": "spotify",
+    "discord": "discord",
+    "notepad": "notepad",
+    "calculator": "calc",
+    "calc": "calc",
+    "paint": "mspaint",
+    "mspaint": "mspaint",
+    "terminal": "wt",
+    "cmd": "cmd",
+    "vscode": "code",
+    "vs code": "code",
+    "visual studio code": "code",
+    "file explorer": "explorer",
+    "explorer": "explorer",
+    "files": "explorer",
+    "task manager": "taskmgr",
+    "settings": "ms-settings:",
+    "steam": "steam"
 }
-ALLOWED_URL_SCHEMES = {"http", "https", "mailto"}
+
 VOLUME_KEYS = {"mute": "volumemute", "up": "volumeup", "down": "volumedown"}
 SHORTCUT_KEYS = {
     "alt": "alt",
@@ -34,28 +52,68 @@ SHORTCUT_KEYS = {
 }
 
 
-def _safe_app_target(app_name: str) -> str | None:
-    value = app_name.strip().lower()
-    if value in ALLOWED_APPS:
-        return ALLOWED_APPS[value]
-    parsed = urlparse(value)
-    if parsed.scheme in ALLOWED_URL_SCHEMES and parsed.netloc:
-        return app_name.strip()
-    return None
-
-
 class WindowsController:
     @staticmethod
     def launch_application(app_name: str) -> str:
-        import subprocess
-        target = _safe_app_target(app_name)
-        if not target:
-            return "That app or URL is not allowed. Use calculator, notepad, paint, explorer, or a web URL."
+        """Reliably opens Windows applications, URLs, or Windows Store apps."""
+        clean_name = app_name.lower().strip().replace("the ", "")
+
+        SYSTEM_COMMANDS = {
+            "notepad": "notepad.exe",
+            "calculator": "calc.exe",
+            "calc": "calc.exe",
+            "chrome": "chrome.exe",
+            "google chrome": "chrome.exe",
+            "settings": "ms-settings:",
+            "task manager": "taskmgr.exe",
+            "explorer": "explorer.exe",
+            "file explorer": "explorer.exe",
+            "terminal": "wt.exe",
+            "cmd": "cmd.exe",
+            "spotify": "spotify:",
+            "paint": "mspaint.exe",
+            "mspaint": "mspaint.exe",
+            "vscode": "code.cmd",
+            "vs code": "code.cmd"
+        }
+
+        # 1. Direct web URLs
+        if clean_name.startswith("http://") or clean_name.startswith("https://") or "youtube" in clean_name or "google" in clean_name:
+            url = clean_name if clean_name.startswith("http") else f"https://{clean_name}.com"
+            webbrowser.open(url)
+            return f"Opened {url}"
+
+        # 2. Native Windows Shell os.startfile()
+        if clean_name in SYSTEM_COMMANDS:
+            target = SYSTEM_COMMANDS[clean_name]
+            try:
+                os.startfile(target)
+                return f"Successfully opened {clean_name}"
+            except Exception:
+                try:
+                    subprocess.Popen(f'start "" "{target}"', shell=True)
+                    return f"Successfully opened {clean_name}"
+                except Exception as e:
+                    print(f"[Launch Note]: {e}", flush=True)
+
+        # 3. Try AppOpener (Matches Start Menu & UWP Store apps)
         try:
-            os.system(f"start {target}")
-        except Exception as error:
-            return f"Could not launch {app_name}: {error}"
-        return f"Launched {app_name}."
+            from AppOpener import open as open_app
+            open_app(clean_name, match_closest=True, throw_error=True)
+            return f"Successfully launched {app_name}"
+        except Exception:
+            pass
+
+        # 4. Fallback: Windows Start-Process via PowerShell
+        try:
+            cmd = f'powershell -Command "Start-Process \'{clean_name}\'"'
+            res = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+            if res.returncode == 0:
+                return f"Launched {clean_name}"
+            else:
+                return f"Executable '{app_name}' not found: {res.stderr.strip()}"
+        except Exception as e:
+            return f"Execution error: {str(e)}"
 
     @staticmethod
     def system_volume(action: str, amount: int = 10) -> str:

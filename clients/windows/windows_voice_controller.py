@@ -16,6 +16,13 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+import logging
+import warnings
+warnings.filterwarnings("ignore")
+logging.getLogger("google_genai.models").setLevel(logging.ERROR)
+logging.getLogger("root").setLevel(logging.ERROR)
+logging.basicConfig(level=logging.ERROR)
+
 import numpy as np
 import openwakeword
 import pyaudio
@@ -31,15 +38,24 @@ FRAME_SAMPLES = 1280
 BUFFER_SECONDS = 1.5
 MAX_BUFFER_FRAMES = int(BUFFER_SECONDS / (FRAME_SAMPLES / SAMPLE_RATE))
 COMMAND_SECONDS = 6
-WAKE_THRESHOLD = 0.65
+WAKE_THRESHOLD = 0.45
 
 TOOLS = [
     {
         "type": "function",
         "function": {
             "name": "launch_application",
-            "description": "Launch calculator, notepad, paint, explorer, or an http(s) URL.",
-            "parameters": {"type": "object", "properties": {"app_name": {"type": "string"}}, "required": ["app_name"]},
+            "description": "Opens an application, website, or utility. Strip phrases like 'open', 'launch', or 'start'. E.g., pass 'chrome' for 'open chrome', or 'spotify' for 'start spotify'.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "app_name": {
+                        "type": "string",
+                        "description": "Short name or binary of the app, e.g. 'notepad', 'chrome', 'spotify', 'calc'"
+                    }
+                },
+                "required": ["app_name"]
+            },
         },
     },
     {
@@ -116,21 +132,28 @@ def get_local_jarvis_engine():
 
 
 def speak_jarvis(text: str) -> None:
-    """TTS router: Local XTTS v2 -> ElevenLabs -> Rime TTS -> Fallback"""
-    # 0. Try Local Coqui XTTS v2 if jarvis_reference.wav is present
-    local_engine = get_local_jarvis_engine()
-    if local_engine and getattr(local_engine, 'model', None) is not None:
-        try:
-            local_engine.speak_stream(text)
-            return
-        except Exception as e:
-            print(f"[Local XTTS Error]: {e}", flush=True)
+    """Instant Zero-Lag TTS router: Windows Native SAPI5 -> API Cloud Speakers"""
+    # 1. Instant Windows SAPI5 Speech (Zero-delay execution)
+    try:
+        import pyttsx3
+        engine = pyttsx3.init()
+        voices = engine.getProperty('voices')
+        for v in voices:
+            v_name = v.name.lower()
+            if 'george' in v_name or 'david' in v_name or 'hazel' in v_name or 'male' in v_name:
+                engine.setProperty('voice', v.id)
+                break
+        engine.setProperty('rate', 175)
+        engine.say(text)
+        engine.runAndWait()
+        return
+    except Exception as e:
+        print(f"[Native Speech Note]: {e}", flush=True)
 
-    api_key = os.getenv("RIME_API_KEY")
     eleven_key = os.getenv("ELEVENLABS_API_KEY")
     jarvis_voice_id = os.getenv("ELEVENLABS_JARVIS_VOICE_ID")
     
-    # 1. Try ElevenLabs voice clone if credentials set
+    # 2. ElevenLabs API (if credentials set)
     if eleven_key and jarvis_voice_id:
         try:
             import requests, io
@@ -143,59 +166,15 @@ def speak_jarvis(text: str) -> None:
                 "model_id": "eleven_turbo_v2_5",
                 "voice_settings": {"stability": 0.65, "similarity_boost": 0.85, "style": 0.15}
             }
-            res = requests.post(url, json=payload, headers=headers, timeout=10)
+            res = requests.post(url, json=payload, headers=headers, timeout=5)
             if res.status_code == 200:
                 audio_data, sr = sf.read(io.BytesIO(res.content), dtype="float32")
                 eq_audio = apply_jarvis_eq(audio_data, sr)
                 sd.play(eq_audio, sr)
                 sd.wait()
                 return
-        except Exception as e:
-            print(f"[ElevenLabs TTS Error]: {e}", flush=True)
-
-    # 2. Rime TTS with Spencer British Voice
-    if api_key:
-        try:
-            import requests, io
-            import soundfile as sf
-            import sounddevice as sd
-            rime_url = os.getenv("RIME_TTS_URL", "https://users.rime.ai/v1/rime-tts")
-            res = requests.post(
-                rime_url,
-                json={
-                    "text": text,
-                    "speaker": "spencer",
-                    "speedAlpha": 0.95,
-                    "samplingRate": 24000,
-                    "modelId": "mistv3"
-                },
-                headers={"Authorization": f"Bearer {api_key}"},
-                timeout=10,
-            )
-            if res.status_code == 200:
-                audio_data, sr = sf.read(io.BytesIO(res.content), dtype="float32")
-                eq_audio = apply_jarvis_eq(audio_data, sr)
-                sd.play(eq_audio, sr)
-                sd.wait()
-                return
-        except Exception as e:
-            print(f"[Rime TTS Error]: {e}", flush=True)
-
-    # 3. Windows Native SAPI5 Speech Fallback
-    try:
-        import pyttsx3
-        engine = pyttsx3.init()
-        # Set male voice if available
-        voices = engine.getProperty('voices')
-        for v in voices:
-            if 'david' in v.name.lower() or 'male' in v.name.lower() or 'george' in v.name.lower():
-                engine.setProperty('voice', v.id)
-                break
-        engine.setProperty('rate', 160)
-        engine.say(text)
-        engine.runAndWait()
-    except Exception as e:
-        print(f"[Native TTS Error]: {e}", flush=True)
+        except Exception:
+            pass
 
 
 class VoiceController:
@@ -205,6 +184,12 @@ class VoiceController:
         if not gemini_key:
             raise RuntimeError("Set GEMINI_API_KEY before starting the Windows voice controller.")
         self.gclient = genai.Client(api_key=gemini_key)
+        try:
+            from jarvis_agent import JarvisAgent
+            self.agent = JarvisAgent(speak_jarvis)
+        except Exception as e:
+            print(f"[Jarvis Agent Init Warning]: {e}", flush=True)
+            self.agent = None
         self.audio = pyaudio.PyAudio()
         self.stream = self.audio.open(
             format=pyaudio.paInt16,
@@ -224,6 +209,8 @@ class VoiceController:
 
     def transcribe(self, pcm: bytes) -> str:
         from google.genai import types
+        if len(pcm) < SAMPLE_RATE * 0.3:  # skip transcription if recorded sound is under 300ms
+            return ""
         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as file:
             path = file.name
         try:
@@ -234,14 +221,63 @@ class VoiceController:
                 output.writeframes(pcm)
             with open(path, "rb") as audio_file:
                 audio_data = audio_file.read()
-            response = self.gclient.models.generate_content(
-                model="gemini-flash-latest",
-                contents=[
-                    types.Part.from_bytes(data=audio_data, mime_type="audio/wav"),
-                    "Transcribe the audio accurately into English text. Output ONLY the raw transcribed text."
-                ]
-            )
-            return (response.text or "").strip()
+
+            # 1. Try SpeechRecognition for instant STT
+            try:
+                import speech_recognition as sr
+                r = sr.Recognizer()
+                with sr.AudioFile(path) as source:
+                    audio_source = r.record(source)
+                    text = r.recognize_google(audio_source)
+                    if text and len(text.strip()) > 1:
+                        print(f">> [Recognized Voice]: '{text.strip()}'", flush=True)
+                        return text.strip()
+            except Exception:
+                pass
+
+            # 2. Try Gemini Speech STT
+            try:
+                response = self.gclient.models.generate_content(
+                    model="gemini-2.5-flash",
+                    contents=[
+                        types.Part.from_bytes(data=audio_data, mime_type="audio/wav"),
+                        "Transcribe the audio accurately into English text. Output ONLY the raw transcribed text. If there is no audible human voice, output nothing."
+                    ]
+                )
+                if response and response.text:
+                    return (response.text or "").strip()
+            except Exception as ex:
+                pass
+
+            # 3. Try local faster-whisper if available
+            try:
+                from faster_whisper import WhisperModel
+                if not hasattr(self, '_fw_model'):
+                    self._fw_model = WhisperModel("tiny", device="cpu", compute_type="int8")
+                segments, _ = self._fw_model.transcribe(path)
+                fw_text = " ".join([seg.text for seg in segments]).strip()
+                if fw_text:
+                    print(f">> [Local Faster-Whisper Used]: '{fw_text}'", flush=True)
+                    return fw_text
+            except Exception:
+                pass
+
+            # 4. Fallback to free Google Speech Recognition
+            try:
+                import speech_recognition as sr
+                r = sr.Recognizer()
+                with sr.AudioFile(path) as source:
+                    audio_source = r.record(source)
+                    text = r.recognize_google(audio_source)
+                    if text:
+                        print(f">> [Fallback Local Transcriber Used]: '{text}'", flush=True)
+                        return text
+            except Exception as sr_err:
+                pass
+
+            if last_err:
+                print(f"Transcription model error: {last_err}")
+            return ""
         except Exception as e:
             print(f"Transcription error: {e}")
             return ""
@@ -252,30 +288,58 @@ class VoiceController:
 
     def execute(self, text: str) -> None:
         win = WindowsController()
-        text_lower = text.lower()
+        text_lower = text.lower().strip()
         print(f">> Executing command logic for: '{text}'", flush=True)
         
-        # 1. Execute action immediately (Zero Lag)
-        if any(w in text_lower for w in ["notepad", "netpad", "note pad", "notes"]):
+        # 1. Immediate action execution
+        executed = False
+        if any(w in text_lower for w in ["open ", "launch ", "start "]):
+            # Extract target app name after action verb
+            for verb in ["open ", "launch ", "start "]:
+                if verb in text_lower:
+                    target_app = text_lower.split(verb, 1)[1].strip()
+                    res = win.launch_application(target_app)
+                    print(f"[Jarvis Action]: {res}", flush=True)
+                    executed = True
+                    break
+        elif any(w in text_lower for w in ["sleep", "go to sleep", "goodnight", "turn off", "shutdown"]):
+            reply = "Going to sleep mode. Goodnight, Sir."
+            print(f"[Jarvis]: {reply}", flush=True)
+            speak_jarvis(reply)
+            return
+        elif any(w in text_lower for w in ["notepad", "netpad", "note pad", "notes"]):
             win.launch_application("notepad")
+            executed = True
         elif any(w in text_lower for w in ["calculator", "calc", "calculate"]):
             win.launch_application("calculator")
+            executed = True
         elif any(w in text_lower for w in ["paint", "mspaint", "draw"]):
             win.launch_application("paint")
+            executed = True
         elif any(w in text_lower for w in ["explorer", "file explorer", "my computer", "files"]):
             win.launch_application("explorer")
+            executed = True
         elif "volume up" in text_lower or "increase volume" in text_lower or "louder" in text_lower:
             win.system_volume("up", 10)
+            executed = True
         elif "volume down" in text_lower or "decrease volume" in text_lower or "quieter" in text_lower:
             win.system_volume("down", 10)
+            executed = True
         elif "mute" in text_lower or "unmute" in text_lower:
             win.system_volume("mute")
+            executed = True
         elif "close" in text_lower or "shut" in text_lower:
             win.window_management("close")
+            executed = True
         elif "minimize" in text_lower:
             win.window_management("minimize")
+            executed = True
         elif "maximize" in text_lower:
             win.window_management("maximize")
+            executed = True
+        else:
+            res = win.launch_application(text_lower)
+            print(f"[Jarvis Action]: {res}", flush=True)
 
         # 2. Concurrently speak sign-off
         reply = "It was a pleasure helping, Sir."
@@ -284,16 +348,26 @@ class VoiceController:
 
     def run(self) -> None:
         openwakeword.utils.download_models()
-        model = Model(wakeword_models=["hey_jarvis"], inference_framework="onnx")
+        # Load available pretrained models (hey_jarvis and custom jarvis if available)
+        models_to_load = ["hey_jarvis"]
+        for path in openwakeword.get_pretrained_model_paths():
+            if "jarvis" in os.path.basename(path).lower() and os.path.basename(path) not in models_to_load:
+                models_to_load.append(path)
+
+        model = Model(wakeword_models=models_to_load)
         print("\n==========================================", flush=True)
-        print("Listening... Say 'Hey Jarvis' to activate!", flush=True)
+        print("Jarvis Ready! Say 'Hello Jarvis' to give commands!", flush=True)
         print("==========================================\n", flush=True)
         try:
             while not self.stop_event.is_set():
                 frame = self.stream.read(FRAME_SAMPLES, exception_on_overflow=False)
                 self.ring.append(frame)
                 prediction = model.predict(np.frombuffer(frame, dtype=np.int16))
-                score = prediction.get("hey_jarvis", 0.0)
+                
+                # Check maximum score across loaded jarvis models
+                score = max([v for k, v in prediction.items() if "jarvis" in k.lower()], default=0.0)
+                if score > 0.15 and score < WAKE_THRESHOLD:
+                    print(f"[Mic Signal Detected] Score: {score:.2f} (Needs >= {WAKE_THRESHOLD})", flush=True)
                 if score < WAKE_THRESHOLD:
                     continue
                 print(f"\n>> [Wake Word Detected! (score: {score:.2f})]", flush=True)
@@ -304,14 +378,27 @@ class VoiceController:
                 print(f"[Jarvis]: {greeting}", flush=True)
                 speak_jarvis(greeting)
 
-                # 2. Wait up to 35 seconds for user command with fast 400ms VAD
-                print(">> Listening for your command (up to 35 seconds)...", flush=True)
-                # Flush microphone buffer completely so greeting audio is not processed as a user command
-                self.ring.drain()
+                # 2. Wait for user command with dynamic ambient noise sampling and VAD
+                print(">> Listening for your command...", flush=True)
                 
-                max_seconds = 35
-                silence_threshold_rms = 450.0
-                silence_duration_ms = 400  # 400ms sub-second reaction time
+                # Drain stream to clear speaker echo from greeting
+                time.sleep(0.2)
+                self.ring.drain()
+                while self.stream.get_read_available() > 0:
+                    self.stream.read(self.stream.get_read_available(), exception_on_overflow=False)
+                
+                # Sample ambient noise baseline over 100ms
+                ambient_rms = []
+                for _ in range(int(SAMPLE_RATE / FRAME_SAMPLES * 0.1)):
+                    f = self.stream.read(FRAME_SAMPLES, exception_on_overflow=False)
+                    s = np.frombuffer(f, dtype=np.int16)
+                    if s.size:
+                        ambient_rms.append(float(np.sqrt(np.mean(s.astype(np.float32) ** 2))))
+                
+                baseline = np.mean(ambient_rms) if ambient_rms else 100.0
+                silence_threshold_rms = max(baseline * 1.6, 250.0)
+                silence_duration_ms = 500  # 500ms pause reaction time
+                max_seconds = 10
                 
                 frames = []
                 speech_started = False
@@ -324,7 +411,6 @@ class VoiceController:
                     frame = self.stream.read(FRAME_SAMPLES, exception_on_overflow=False)
                     frames.append(frame)
                     
-                    # Calculate audio volume (RMS)
                     samples = np.frombuffer(frame, dtype=np.int16)
                     rms = float(np.sqrt(np.mean(samples.astype(np.float32) ** 2))) if samples.size else 0.0
                     
@@ -347,14 +433,22 @@ class VoiceController:
                 
                 if clean_command and len(clean_command) > 2 and "hello, sir" not in clean_command.lower() and "pleasure helping" not in clean_command.lower():
                     print(f">> Transcribed Command: \"{clean_command}\"", flush=True)
-                    self.execute(clean_command)
+                    if hasattr(self, 'agent') and self.agent is not None:
+                        self.agent.handle_user_query(clean_command)
+                    else:
+                        self.execute(clean_command)
                 else:
                     timeout_msg = "Let's hope for next time, Sir."
                     print(f"[Jarvis]: {timeout_msg}", flush=True)
                     speak_jarvis(timeout_msg)
                 
-                # Drain audio buffer before returning to sleep state to avoid self-re-triggering
+                # Drain audio buffer and reset wake model state to avoid self-re-triggering
                 self.ring.drain()
+                while self.stream.get_read_available() > 0:
+                    self.stream.read(self.stream.get_read_available(), exception_on_overflow=False)
+                if hasattr(model, "reset"):
+                    model.reset()
+                time.sleep(1.5)
                 print("\nListening again for 'Hey Jarvis'...\n", flush=True)
         finally:
             self.stream.stop_stream()
@@ -363,15 +457,38 @@ class VoiceController:
 
 
 def play_chime() -> None:
-    import winsound
-
-    winsound.Beep(880, 100)
+    """Plays a crisp double-tone futuristic wake chime."""
+    try:
+        import sounddevice as sd
+        import numpy as np
+        sr = 44100
+        # 880Hz -> 1320Hz ascending sci-fi chime
+        t1 = np.linspace(0, 0.1, int(sr * 0.1), False)
+        t2 = np.linspace(0, 0.15, int(sr * 0.15), False)
+        tone1 = np.sin(2 * np.pi * 880 * t1) * 0.6
+        tone2 = np.sin(2 * np.pi * 1320 * t2) * 0.7
+        audio = np.concatenate([tone1, tone2]).astype(np.float32)
+        sd.play(audio, sr)
+        sd.wait()
+    except Exception:
+        import winsound
+        winsound.Beep(880, 150)
+        winsound.Beep(1320, 200)
 
 
 def play_done_chime() -> None:
-    import winsound
-
-    winsound.Beep(440, 100)
+    """Plays a descending tone indicating speech listening is finished."""
+    try:
+        import sounddevice as sd
+        import numpy as np
+        sr = 44100
+        t1 = np.linspace(0, 0.12, int(sr * 0.12), False)
+        tone = np.sin(2 * np.pi * 587 * t1) * 0.5
+        sd.play(tone.astype(np.float32), sr)
+        sd.wait()
+    except Exception:
+        import winsound
+        winsound.Beep(587, 150)
 
 
 if __name__ == "__main__":
