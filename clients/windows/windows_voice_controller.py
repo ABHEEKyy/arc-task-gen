@@ -260,7 +260,7 @@ class VoiceController:
             # 2. Try Gemini Speech STT
             try:
                 response = self.gclient.models.generate_content(
-                    model="gemini-3.6-flash",
+                    model="gemini-1.5-flash",
                     contents=[
                         types.Part.from_bytes(data=audio_data, mime_type="audio/wav"),
                         "Transcribe the audio accurately into English text. Output ONLY the raw transcribed text. If there is no audible human voice, output nothing."
