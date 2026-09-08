@@ -307,50 +307,22 @@ class ConversationalController(VoiceController):
         samples = np.frombuffer(frame, dtype=np.int16)
         return float(np.sqrt(np.mean(samples.astype(np.float32) ** 2))) if samples.size else 0.0
 
-    def _stream_reply(self, messages: list[dict[str, object]], use_tools: bool) -> tuple[str, list[dict[str, object]]]:
-        response = self.client.chat.completions.create(
-            model=os.getenv("VOICE_MODEL", "gpt-4o-mini"),
-            messages=messages,
-            tools=(TOOLS + REALTIME_TOOLS) if use_tools else None,
-            tool_choice="auto" if use_tools else None,
-            stream=True,
-        )
-        content_parts: list[str] = []
-        tool_calls: dict[int, dict[str, object]] = {}
-        for chunk in response:
-            delta = chunk.choices[0].delta
-            if delta.content:
-                content_parts.append(delta.content)
-                self.output.say_token(delta.content)
-            for call in delta.tool_calls or []:
-                entry = tool_calls.setdefault(call.index, {"id": call.id, "type": "function", "function": {"name": "", "arguments": ""}})
-                if call.id:
-                    entry["id"] = call.id
-                function = entry["function"]
-                if call.function.name:
-                    function["name"] += call.function.name
-                if call.function.arguments:
-                    function["arguments"] += call.function.arguments
-        self.output.flush_tokens()
-        return "".join(content_parts), [tool_calls[index] for index in sorted(tool_calls)]
-
     def execute_turn(self, text: str) -> None:
         self.history.append({"role": "user", "content": text})
         self.history = [self.history[0]] + self.history[-MAX_HISTORY_MESSAGES:]
-        reply, tool_calls = self._stream_reply(self.history, use_tools=True)
-        if tool_calls:
-            self.history.append({"role": "assistant", "content": reply or None, "tool_calls": tool_calls})
-            for call in tool_calls:
-                function_name = call["function"]["name"]
-                function = getattr(WindowsController, function_name, None) or getattr(RealtimeTools, function_name, None)
-                if function_name in {"web_search", "get_weather"}:
-                    self.output.say_sentence("Let me check that for you.")
-                result = function(**json.loads(call["function"]["arguments"])) if function else "Unsupported action."
-                self.history.append({"role": "tool", "tool_call_id": call["id"], "content": result})
-            reply, _ = self._stream_reply(self.history, use_tools=False)
-        if reply.strip():
-            print(f"Assistant: {reply.strip()}")
-            self.history.append({"role": "assistant", "content": reply.strip()})
+        
+        prompt = "\n".join([f"{msg['role']}: {msg['content']}" for msg in self.history if msg.get("content")])
+        try:
+            response = self.gclient.models.generate_content(
+                model="gemini-3.6-flash",
+                contents=f"You are J.A.R.V.I.S., a helpful Windows voice assistant. Keep spoken answers concise (1-2 sentences). Prompt: {prompt}"
+            )
+            reply = response.text or ""
+            print(f"Assistant: {reply}")
+            self.history.append({"role": "assistant", "content": reply})
+            self.output.say_sentence(reply)
+        except Exception as e:
+            print(f"Gemini execution error: {e}")
 
     def run(self) -> None:
         import openwakeword
@@ -358,15 +330,19 @@ class ConversationalController(VoiceController):
 
         openwakeword.utils.download_models()
         model = Model(wakeword_models=["hey_jarvis"], inference_framework="onnx")
-        print("J.A.R.V.I.S. ambient listener online. Say 'Hey Jarvis' to wake the system.")
+        print("J.A.R.V.I.S. ambient listener online. Speak into your microphone to activate!")
         try:
             while not self.stop_event.is_set():
-                # Dormant: only local wake-word inference runs here.
+                # Dormant: local wake-word + Voice Activity Detection runs here.
                 frame = self.stream.read(FRAME_SAMPLES, exception_on_overflow=False)
                 self.ring.append(frame)
-                prediction = model.predict(np.frombuffer(frame, dtype=np.int16))
-                if prediction.get("hey_jarvis", 0.0) < WAKE_THRESHOLD:
+                pcm = np.frombuffer(frame, dtype=np.int16)
+                rms = float(np.sqrt(np.mean(pcm.astype(np.float32)**2)))
+                prediction = model.predict(pcm)
+                score = prediction.get("hey_jarvis", 0.0)
+                if score < WAKE_THRESHOLD and rms < 1200.0:
                     continue
+                print(f"[Detected Voice! RMS={rms:.0f}, Score={score:.4f}] Listening...")
                 self.output.interrupt()
                 self.ducker.duck()
                 play_chime()

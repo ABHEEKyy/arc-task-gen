@@ -47,12 +47,13 @@ def _safe_app_target(app_name: str) -> str | None:
 class WindowsController:
     @staticmethod
     def launch_application(app_name: str) -> str:
+        import subprocess
         target = _safe_app_target(app_name)
         if not target:
             return "That app or URL is not allowed. Use calculator, notepad, paint, explorer, or a web URL."
         try:
-            os.startfile(target)
-        except OSError as error:
+            os.system(f"start {target}")
+        except Exception as error:
             return f"Could not launch {app_name}: {error}"
         return f"Launched {app_name}."
 
