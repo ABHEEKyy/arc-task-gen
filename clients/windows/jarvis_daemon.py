@@ -19,7 +19,7 @@ IPC_PORT = 8799
 
 
 def trigger_jarvis_bubble():
-    """Wakes the existing Siri Bubble via local socket IPC, or launches it with pythonw (no CMD window)."""
+    """Wakes the existing Siri Bubble via local socket IPC, or launches it with python."""
     # 1. Try waking running bubble on port 8799
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
