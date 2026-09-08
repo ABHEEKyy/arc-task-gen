@@ -22,22 +22,14 @@ ALL_TOOLS = [
 class JarvisAgent:
     def __init__(self, tts_speak_function):
         self.tts_speak_function = tts_speak_function
-        self.groq_key = os.getenv("GROQ_API_KEY")
         self.gemini_key = os.getenv("GEMINI_API_KEY")
         self.openai_key = os.getenv("OPENAI_API_KEY")
 
-        if self.groq_key:
-            from openai import OpenAI
-            self.o_client = OpenAI(api_key=self.groq_key, base_url="https://api.groq.com/openai/v1")
-            self.conversation_history = [{"role": "system", "content": JARVIS_HUMAN_PROMPT}]
-            self.model_name = "llama-3.3-70b-versatile"
-            self.provider = "groq"
-        elif self.gemini_key:
+        if self.gemini_key:
             self.gclient = genai.Client(api_key=self.gemini_key)
             self.chat = self.gclient.chats.create(
                 model="gemini-3.6-flash",
                 config=types.GenerateContentConfig(
-
                     system_instruction=JARVIS_HUMAN_PROMPT,
                     tools=ALL_TOOLS,
                     temperature=0.7
@@ -51,7 +43,7 @@ class JarvisAgent:
             self.model_name = "gpt-4o-mini"
             self.provider = "openai"
         else:
-            raise RuntimeError("No API Key (GROQ_API_KEY, GEMINI_API_KEY, or OPENAI_API_KEY) is set.")
+            raise RuntimeError("GEMINI_API_KEY environment variable is not set.")
 
     def handle_user_query(self, transcript: str) -> None:
         """Processes user voice queries with memory context & multi-tool execution."""
