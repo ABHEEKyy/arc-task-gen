@@ -35,9 +35,9 @@ from win_tools import WindowsController
 SAMPLE_RATE = 16_000
 CHANNELS = 1
 FRAME_SAMPLES = 1280
-BUFFER_SECONDS = 1.5
+BUFFER_SECONDS = 2.0
 MAX_BUFFER_FRAMES = int(BUFFER_SECONDS / (FRAME_SAMPLES / SAMPLE_RATE))
-COMMAND_SECONDS = 6
+COMMAND_SECONDS = 8
 WAKE_THRESHOLD = 0.25
 
 TOOLS = [
@@ -394,9 +394,9 @@ class VoiceController:
                         ambient_rms.append(float(np.sqrt(np.mean(s.astype(np.float32) ** 2))))
                 
                 baseline = np.mean(ambient_rms) if ambient_rms else 100.0
-                silence_threshold_rms = max(baseline * 1.6, 250.0)
-                silence_duration_ms = 500  # 500ms pause reaction time
-                max_seconds = 10
+                silence_threshold_rms = max(baseline * 1.2, 120.0)
+                silence_duration_ms = 900  # 900ms pause reaction time
+                max_seconds = 12
                 
                 frames = []
                 speech_started = False
@@ -502,6 +502,8 @@ def ensure_single_instance() -> object:
     """Enforce that only a single instance of the Jarvis Voice Controller terminal runs."""
     import ctypes
     import sys
+    if not hasattr(ctypes, "windll"):
+        return None
     mutex = ctypes.windll.kernel32.CreateMutexW(None, False, "JarvisVoiceController_SingleInstance_Mutex")
     if ctypes.windll.kernel32.GetLastError() == 183:  # ERROR_ALREADY_EXISTS
         print("[Single Instance]: J.A.R.V.I.S. terminal is already running. Bringing active window to front...", flush=True)

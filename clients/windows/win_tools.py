@@ -4,9 +4,11 @@ import os
 import subprocess
 import webbrowser
 from urllib.parse import urlparse
-import pyautogui
-
-pyautogui.FAILSAFE = True
+try:
+    import pyautogui
+    pyautogui.FAILSAFE = True
+except ImportError:
+    pyautogui = None
 
 # Common Windows executable and URI aliases
 APP_ALIASES = {
