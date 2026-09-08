@@ -56,7 +56,14 @@ class WindowsController:
     @staticmethod
     def launch_application(app_name: str) -> str:
         """Reliably opens Windows applications, URLs, or Windows Store apps."""
-        clean_name = app_name.lower().strip().replace("the ", "")
+        clean_name = app_name.lower().strip()
+        for prefix in ["open ", "run ", "launch ", "execute ", "start ", "the "]:
+            if clean_name.startswith(prefix):
+                clean_name = clean_name[len(prefix):].strip()
+        for prefix in ["open ", "run ", "launch ", "execute ", "start ", "the "]:
+            if clean_name.startswith(prefix):
+                clean_name = clean_name[len(prefix):].strip()
+
 
         SYSTEM_COMMANDS = {
             "notepad": "notepad.exe",
@@ -84,6 +91,28 @@ class WindowsController:
             return f"Opened {url}"
 
         # 2. Batch files (.bat / .cmd) and local executable scripts
+        # Case A: User generically asks to "open the bat file" or "run bat file"
+        if clean_name in ["bat file", "batch file", "the bat file", "the batch file", "bat", "batch", "script", "the script"]:
+            # Auto-find the primary batch file in the repository or workspace
+            potential_roots = [
+                os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")),
+                os.path.dirname(__file__),
+                os.getcwd(),
+                os.path.expanduser("~/Desktop"),
+            ]
+            for proot in potential_roots:
+                if os.path.isdir(proot):
+                    for root_dir, _, files in os.walk(proot):
+                        for f in files:
+                            if f.lower().endswith(".bat") and not f.startswith("."):
+                                abs_bat = os.path.join(root_dir, f)
+                                try:
+                                    subprocess.Popen(f'start "" "{abs_bat}"', shell=True)
+                                    return f"Automatically opened batch file: {f}"
+                                except Exception as e:
+                                    return f"Failed to run batch file {f}: {e}"
+
+        # Case B: Specific file name or path requested
         bat_name = clean_name.replace("batch file", "").replace("bat file", "").strip()
         candidates = [
             clean_name,
@@ -95,6 +124,7 @@ class WindowsController:
         search_dirs = [
             os.getcwd(),
             os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")),
+            os.path.dirname(__file__),
             os.path.expanduser("~/Desktop"),
             os.path.expanduser("~/Downloads"),
             os.path.expanduser("~"),
@@ -111,6 +141,7 @@ class WindowsController:
                         return f"Successfully executed batch script: {os.path.basename(abs_p)}"
                     except Exception as e:
                         return f"Failed to execute batch file {os.path.basename(abs_p)}: {e}"
+
 
         # If explicitly requesting a .bat or .cmd by name, try direct shell start
         if clean_name.endswith((".bat", ".cmd")):
