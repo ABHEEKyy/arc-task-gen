@@ -26,27 +26,14 @@ def get_mem0_engine():
     if _mem0_instance is None:
         try:
             from mem0 import Memory
-            groq_key = os.getenv("GROQ_API_KEY")
             gemini_key = os.getenv("GEMINI_API_KEY")
-            if groq_key:
-                config = {
-                    "llm": {
-                        "provider": "groq",
-                        "config": {
-                            "api_key": groq_key,
-                            "model": "llama-3.3-70b-versatile"
-                        }
-                    }
-                }
-                _mem0_instance = Memory.from_config(config)
-            elif gemini_key:
+            if gemini_key:
                 config = {
                     "llm": {
                         "provider": "gemini",
                         "config": {
                             "api_key": gemini_key,
                             "model": "gemini-3.6-flash"
-
                         }
                     }
                 }
