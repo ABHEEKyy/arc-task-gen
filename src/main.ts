@@ -70,9 +70,59 @@ let analyserNode: AnalyserNode | null = null;
 let micStream: MediaStream | null = null;
 let visualizerAnimationFrame: number | null = null;
 
+// Siri Bubble State
+let siriRecognition: SpeechRecognitionInstance | null = null;
+let isSiriListening = false;
+let lastSiriSpeech = "Hello, Sir. How may I assist you?";
+
 const app = document.querySelector<HTMLDivElement>('#app')!;
 app.innerHTML = `
   <div class="app-shell">
+    <!-- Floating Siri Bubble in Top Corner of Screen -->
+    <aside id="siri-bubble-container" class="siri-bubble-container">
+      <!-- Collapsed Orb Button -->
+      <button id="siri-orb-btn" class="siri-orb-button" aria-label="Activate J.A.R.V.I.S. Siri Assistant" title="Click to speak with J.A.R.V.I.S.">
+        <svg class="siri-orb-icon" viewBox="0 0 24 24">
+          <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
+          <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+        </svg>
+        <span class="siri-badge-tag">JARVIS</span>
+      </button>
+
+      <!-- Expanded HUD Card -->
+      <div id="siri-hud-card" class="siri-hud-card hidden">
+        <div class="siri-hud-header">
+          <div class="siri-hud-title-group">
+            <div class="siri-mini-orb"></div>
+            <div>
+              <div class="siri-hud-title">J.A.R.V.I.S. Siri HUD</div>
+              <div id="siri-hud-status" class="siri-hud-subtitle">Online &bull; Standby</div>
+            </div>
+          </div>
+          <button id="siri-close-btn" class="siri-hud-close-btn" title="Minimize Bubble">✕</button>
+        </div>
+
+        <div class="siri-hud-content">
+          <div id="siri-prompt-text" class="siri-hud-prompt">Hello, Sir. How may I assist you?</div>
+          <div id="siri-equalizer" class="siri-hud-equalizer">
+            <i></i><i></i><i></i><i></i><i></i><i></i>
+          </div>
+        </div>
+
+        <div class="siri-hud-actions">
+          <button id="siri-mic-btn" class="siri-mic-toggle-btn">
+            <span>🎙️</span> <span id="siri-mic-text">Tap to Speak</span>
+          </button>
+          <button id="siri-replay-btn" class="siri-action-icon-btn" title="Replay Assistant Speech">
+            <span>🔊 Replay</span>
+          </button>
+          <button id="siri-preset-btn" class="siri-action-icon-btn" title="Simulate Random Incident">
+            <span>⚡ Demo</span>
+          </button>
+        </div>
+      </div>
+    </aside>
+
     <!-- Top Console Navigation & Telemetry -->
     <header class="console-header">
       <div class="brand-section">
@@ -106,7 +156,7 @@ app.innerHTML = `
       </div>
       <div class="action-mode-pills">
         <div class="mode-badge"><span>⚡</span> Latency: &lt; 250ms</div>
-        <div class="mode-badge"><span>🎙️</span> Rime TTS + Web Audio</div>
+        <div class="mode-badge"><span>🎙️</span> Siri Bubble Active</div>
       </div>
     </section>
 
@@ -142,7 +192,7 @@ app.innerHTML = `
             </button>
             <div class="record-rings"></div>
           </div>
-          <p id="capture-status-desc" class="capture-status-desc">Click Record to start microphone capture, or load an operational scenario preset below.</p>
+          <p id="capture-status-desc" class="capture-status-desc">Click Record or use the floating Siri Bubble in the top-right corner to speak naturally.</p>
         </div>
 
         <!-- Scenario Presets -->
@@ -202,7 +252,7 @@ app.innerHTML = `
           </div>
           <div>
             <h3 style="font-family: var(--font-display); font-size: 16px; color: var(--text-primary); margin-bottom: 6px;">No Active Incident Loaded</h3>
-            <p style="font-size: 13px; max-width: 320px;">Speak an incident report or select a scenario preset on the left to generate structured parameters.</p>
+            <p style="font-size: 13px; max-width: 320px;">Speak into the top Siri Bubble or load a scenario preset to generate structured parameters.</p>
           </div>
         </div>
 
@@ -296,7 +346,7 @@ app.innerHTML = `
     <!-- Footer -->
     <footer class="console-footer">
       <div>
-        <strong>Voice Bridge Console v2.0</strong> &bull; Incident handoff system with Rime TTS & Gemini AI.
+        <strong>Voice Bridge Console v2.0</strong> &bull; Incident handoff system with Siri Bubble HUD & Rime TTS.
       </div>
       <div class="footer-tech-stack">
         <span>Audio: <span class="tag">Rime AI / WebAudio</span></span>
@@ -342,6 +392,18 @@ const healthStatus = document.querySelector<HTMLSpanElement>('#health-status')!;
 const visualizerStatus = document.querySelector<HTMLDivElement>('#visualizer-status')!;
 const visualizerCanvas = document.querySelector<HTMLCanvasElement>('#visualizer-canvas')!;
 
+// Siri Bubble Element References
+const siriOrbBtn = document.querySelector<HTMLButtonElement>('#siri-orb-btn')!;
+const siriHudCard = document.querySelector<HTMLDivElement>('#siri-hud-card')!;
+const siriCloseBtn = document.querySelector<HTMLButtonElement>('#siri-close-btn')!;
+const siriPromptText = document.querySelector<HTMLDivElement>('#siri-prompt-text')!;
+const siriHudStatus = document.querySelector<HTMLDivElement>('#siri-hud-status')!;
+const siriMicBtn = document.querySelector<HTMLButtonElement>('#siri-mic-btn')!;
+const siriMicText = document.querySelector<HTMLSpanElement>('#siri-mic-text')!;
+const siriEqualizer = document.querySelector<HTMLDivElement>('#siri-equalizer')!;
+const siriReplayBtn = document.querySelector<HTMLButtonElement>('#siri-replay-btn')!;
+const siriPresetBtn = document.querySelector<HTMLButtonElement>('#siri-preset-btn')!;
+
 // -------------------------------------------------------------
 // Real-Time Canvas Audio Visualizer
 // -------------------------------------------------------------
@@ -365,8 +427,7 @@ function initVisualizer(): void {
     const height = canvas.height;
     ctx.clearRect(0, 0, width, height);
 
-    if (analyserNode && isListening) {
-      // Live microphone frequency visualizer
+    if (analyserNode && (isListening || isSiriListening)) {
       const bufferLength = analyserNode.frequencyBinCount;
       const dataArray = new Uint8Array(bufferLength);
       analyserNode.getByteFrequencyData(dataArray);
@@ -387,11 +448,9 @@ function initVisualizer(): void {
         if (x > width) break;
       }
     } else {
-      // Idle ambient multi-layer sine waves
       phase += 0.03;
       const centerY = height / 2;
 
-      // Draw grid line
       ctx.strokeStyle = 'rgba(56, 189, 248, 0.1)';
       ctx.lineWidth = 1;
       ctx.beginPath();
@@ -399,7 +458,6 @@ function initVisualizer(): void {
       ctx.lineTo(width, centerY);
       ctx.stroke();
 
-      // Wave 1 - Cyan
       ctx.beginPath();
       ctx.strokeStyle = 'rgba(0, 242, 254, 0.45)';
       ctx.lineWidth = 2;
@@ -410,7 +468,6 @@ function initVisualizer(): void {
       }
       ctx.stroke();
 
-      // Wave 2 - Purple harmonic
       ctx.beginPath();
       ctx.strokeStyle = 'rgba(129, 140, 248, 0.35)';
       ctx.lineWidth = 1.5;
@@ -617,7 +674,6 @@ async function synthesizeAndPlaySpokenBrief(): Promise<void> {
   } catch (error) {
     console.warn('Rime TTS unavailable, falling back to Browser Web Speech API:', error);
 
-    // Browser SpeechSynthesis Fallback
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(text);
@@ -639,6 +695,218 @@ async function synthesizeAndPlaySpokenBrief(): Promise<void> {
       playBtnText.textContent = 'Synthesize & Play Spoken Brief';
     }
   }
+}
+
+// -------------------------------------------------------------
+// Siri Assistant Voice Speaker (for the Floating Bubble)
+// -------------------------------------------------------------
+function speakSiriText(text: string, onEnd?: () => void): void {
+  lastSiriSpeech = text;
+  siriPromptText.textContent = text;
+  siriEqualizer.classList.add('active');
+  siriHudStatus.textContent = 'Speaking...';
+  siriOrbBtn.classList.add('active');
+
+  if ('speechSynthesis' in window) {
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 1.02;
+    utterance.pitch = 0.92;
+
+    const voices = window.speechSynthesis.getVoices();
+    const britishOrMale = voices.find((v) => /british|uk|george|david|male/i.test(v.name));
+    if (britishOrMale) utterance.voice = britishOrMale;
+
+    utterance.onend = () => {
+      siriEqualizer.classList.remove('active');
+      siriHudStatus.textContent = 'Standby';
+      siriOrbBtn.classList.remove('active');
+      if (onEnd) onEnd();
+    };
+    window.speechSynthesis.speak(utterance);
+  } else {
+    setTimeout(() => {
+      siriEqualizer.classList.remove('active');
+      siriHudStatus.textContent = 'Standby';
+      siriOrbBtn.classList.remove('active');
+      if (onEnd) onEnd();
+    }, 2500);
+  }
+}
+
+function playWakeChimeAudio(): void {
+  try {
+    const ctx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(880, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(1320, ctx.currentTime + 0.12);
+    gain.gain.setValueAtTime(0.3, ctx.currentTime);
+    gain.gain.linearRampToValueAtTime(0.01, ctx.currentTime + 0.2);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.22);
+  } catch (err) {
+    console.warn('Could not play wake chime:', err);
+  }
+}
+
+// -------------------------------------------------------------
+// Siri Bubble Voice Interaction Controller
+// -------------------------------------------------------------
+function activateSiriBubble(): void {
+  siriHudCard.classList.remove('hidden');
+  siriOrbBtn.style.display = 'none';
+  playWakeChimeAudio();
+
+  const greeting = "Hello, Sir. How may I assist you?";
+  speakSiriText(greeting, () => {
+    // Automatically start listening after greeting
+    startSiriListening();
+  });
+}
+
+function minimizeSiriBubble(): void {
+  if (isSiriListening) {
+    stopSiriListening();
+  }
+  siriHudCard.classList.add('hidden');
+  siriOrbBtn.style.display = 'flex';
+}
+
+function startSiriListening(): void {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) {
+    siriPromptText.textContent = "Web Speech Recognition is not supported on this browser.";
+    return;
+  }
+
+  void setupAudioContext();
+
+  siriRecognition = new SpeechRecognition();
+  siriRecognition.continuous = false;
+  siriRecognition.interimResults = true;
+  siriRecognition.lang = 'en-US';
+
+  isSiriListening = true;
+  siriMicBtn.classList.add('listening');
+  siriMicText.textContent = 'Listening...';
+  siriHudStatus.textContent = 'Listening for speech...';
+  siriEqualizer.classList.add('active');
+  siriPromptText.textContent = 'Listening for your command...';
+
+  siriRecognition.onresult = (event) => {
+    const speech = Array.from(event.results).map((r) => r[0].transcript).join(' ');
+    siriPromptText.textContent = `"${speech}"`;
+    currentTranscript = speech;
+    transcriptBody.textContent = speech;
+    transcriptBody.classList.remove('empty');
+    updateWordCount(speech);
+  };
+
+  siriRecognition.onend = () => {
+    stopSiriListening();
+    handleSiriCommand(currentTranscript);
+  };
+
+  siriRecognition.onerror = (event) => {
+    console.warn('Siri speech error:', event);
+    stopSiriListening();
+    siriPromptText.textContent = 'Could not detect command. Please try again.';
+  };
+
+  try {
+    siriRecognition.start();
+  } catch (e) {
+    console.error(e);
+    stopSiriListening();
+  }
+}
+
+function stopSiriListening(): void {
+  isSiriListening = false;
+  siriMicBtn.classList.remove('listening');
+  siriMicText.textContent = 'Tap to Speak';
+  siriHudStatus.textContent = 'Processing...';
+  siriEqualizer.classList.remove('active');
+  try {
+    siriRecognition?.stop();
+  } catch {
+    // Ignore stop errors
+  }
+}
+
+function handleSiriCommand(speech: string): void {
+  const lower = speech.toLowerCase().trim();
+  if (!lower) {
+    speakSiriText("Let's hope for next time, Sir.");
+    return;
+  }
+
+  // 1. Scenario commands
+  if (lower.includes('scenario 1') || lower.includes('cold room') || lower.includes('cold storage')) {
+    loadScenarioPreset(PRESET_SCENARIOS[0]);
+    speakSiriText("Loaded Cold Room Temperature anomaly scenario, Sir.");
+    return;
+  }
+  if (lower.includes('scenario 2') || lower.includes('transformer') || lower.includes('substation')) {
+    loadScenarioPreset(PRESET_SCENARIOS[1]);
+    speakSiriText("Loaded Substation Thermal Runaway scenario, Sir.");
+    return;
+  }
+  if (lower.includes('scenario 3') || lower.includes('reactor') || lower.includes('chemical')) {
+    loadScenarioPreset(PRESET_SCENARIOS[2]);
+    speakSiriText("Loaded Reactor Pressure Anomaly scenario, Sir.");
+    return;
+  }
+  if (lower.includes('scenario 4') || lower.includes('storage') || lower.includes('san')) {
+    loadScenarioPreset(PRESET_SCENARIOS[3]);
+    speakSiriText("Loaded SAN Storage Array Degradation scenario, Sir.");
+    return;
+  }
+
+  // 2. Clear command
+  if (lower.includes('clear') || lower.includes('reset')) {
+    currentTranscript = '';
+    transcriptBody.textContent = 'Microphone transcript or scenario text will appear here...';
+    transcriptBody.classList.add('empty');
+    updateWordCount('');
+    speakSiriText("Console transcript cleared, Sir.");
+    return;
+  }
+
+  // 3. Play / Synthesize
+  if (lower.includes('play') || lower.includes('synthesize') || lower.includes('speak brief')) {
+    void synthesizeAndPlaySpokenBrief();
+    speakSiriText("Synthesizing actionable handoff brief now, Sir.");
+    return;
+  }
+
+  // 4. Incident report capture
+  if (
+    lower.includes('temperature') ||
+    lower.includes('degrees') ||
+    lower.includes('pressure') ||
+    lower.includes('dock') ||
+    lower.includes('urgent') ||
+    lower.includes('voltage') ||
+    lower.includes('failure') ||
+    lower.includes('broken') ||
+    lower.length > 25
+  ) {
+    const incident = parseIncident(speech);
+    renderBrief(incident);
+    void persistIncident(incident);
+    speakSiriText(
+      `Incident recorded at ${incident.location}. Priority is ${incident.urgency}. I have dispatched the handoff brief, Sir.`
+    );
+    return;
+  }
+
+  // 5. General conversational reply
+  speakSiriText(`Understood, Sir. I have recorded "${speech}". Ready for further instructions.`);
 }
 
 // -------------------------------------------------------------
@@ -962,6 +1230,33 @@ function setupEventListeners(): void {
       recognition?.stop();
       finishCapture();
     }
+  });
+
+  // Siri Bubble Events
+  siriOrbBtn.addEventListener('click', () => {
+    activateSiriBubble();
+  });
+
+  siriCloseBtn.addEventListener('click', () => {
+    minimizeSiriBubble();
+  });
+
+  siriMicBtn.addEventListener('click', () => {
+    if (!isSiriListening) {
+      startSiriListening();
+    } else {
+      stopSiriListening();
+    }
+  });
+
+  siriReplayBtn.addEventListener('click', () => {
+    speakSiriText(lastSiriSpeech);
+  });
+
+  siriPresetBtn.addEventListener('click', () => {
+    const randomIdx = Math.floor(Math.random() * PRESET_SCENARIOS.length);
+    loadScenarioPreset(PRESET_SCENARIOS[randomIdx]);
+    speakSiriText(`Loaded ${PRESET_SCENARIOS[randomIdx].title}, Sir.`);
   });
 
   // Preset Scenario Buttons

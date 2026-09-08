@@ -1025,3 +1025,297 @@ body {
     gap: 12px;
   }
 }
+
+/* =========================================================
+   Floating Siri-Style Bubble Widget (Top Corner HUD)
+   ========================================================= */
+.siri-bubble-container {
+  position: fixed;
+  top: 22px;
+  right: 26px;
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  pointer-events: auto;
+}
+
+/* Collapsed Orb Button */
+.siri-orb-button {
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  border: none;
+  background: radial-gradient(circle at 35% 35%, #00f2fe 0%, #818cf8 40%, #ec4899 75%, #090e17 100%);
+  box-shadow: 
+    0 0 25px rgba(0, 242, 254, 0.5),
+    0 0 45px rgba(236, 72, 153, 0.3),
+    inset 0 0 12px rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: siriOrbBreath 3s infinite ease-in-out alternate;
+}
+
+.siri-orb-button:hover {
+  transform: scale(1.12);
+  box-shadow: 
+    0 0 35px rgba(0, 242, 254, 0.8),
+    0 0 60px rgba(236, 72, 153, 0.5);
+}
+
+.siri-orb-button.active {
+  animation: siriOrbActive 1.2s infinite ease-in-out alternate;
+}
+
+.siri-orb-button::before {
+  content: '';
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  border: 1.5px dashed rgba(56, 189, 248, 0.6);
+  animation: ringRotate 8s linear infinite;
+  pointer-events: none;
+}
+
+.siri-orb-icon {
+  width: 26px;
+  height: 26px;
+  fill: #ffffff;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
+}
+
+.siri-badge-tag {
+  position: absolute;
+  bottom: -6px;
+  background: #090e17;
+  border: 1px solid var(--accent-cyan);
+  color: var(--accent-cyan);
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 1px 6px;
+  border-radius: 999px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
+  pointer-events: none;
+}
+
+@keyframes siriOrbBreath {
+  0% { transform: scale(1); filter: hue-rotate(0deg); }
+  100% { transform: scale(1.06); filter: hue-rotate(35deg); }
+}
+
+@keyframes siriOrbActive {
+  0% { transform: scale(1.05); filter: hue-rotate(0deg); box-shadow: 0 0 30px #00f2fe; }
+  100% { transform: scale(1.18); filter: hue-rotate(90deg); box-shadow: 0 0 50px #ec4899; }
+}
+
+/* Expanded Siri Card HUD */
+.siri-hud-card {
+  width: 385px;
+  background: rgba(9, 14, 23, 0.88);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  border-radius: var(--radius-xl);
+  box-shadow: 
+    0 16px 40px rgba(0, 0, 0, 0.6),
+    0 0 30px rgba(14, 165, 233, 0.25);
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: siriPopIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.siri-hud-card.hidden {
+  display: none;
+}
+
+@keyframes siriPopIn {
+  0% { opacity: 0; transform: translateY(-15px) scale(0.95); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.siri-hud-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #00f2fe, #818cf8, #ec4899);
+}
+
+.siri-hud-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.siri-hud-title-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.siri-mini-orb {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #00f2fe 0%, #818cf8 50%, #ec4899 100%);
+  box-shadow: 0 0 15px rgba(0, 242, 254, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: siriOrbBreath 2.5s infinite alternate;
+}
+
+.siri-hud-title {
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: 0.02em;
+}
+
+.siri-hud-subtitle {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--accent-cyan);
+}
+
+.siri-hud-close-btn {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.2s ease;
+}
+
+.siri-hud-close-btn:hover {
+  background: rgba(244, 63, 94, 0.25);
+  color: #fb7185;
+  border-color: #f43f5e;
+}
+
+/* Siri Dialogue & Speech Bubble Area */
+.siri-hud-content {
+  background: rgba(3, 7, 18, 0.6);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  min-height: 58px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+}
+
+.siri-hud-prompt {
+  font-size: 13px;
+  color: #f1f5f9;
+  line-height: 1.45;
+  word-break: break-word;
+}
+
+.siri-hud-equalizer {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  height: 16px;
+}
+
+.siri-hud-equalizer i {
+  width: 3px;
+  height: 6px;
+  background: var(--accent-cyan);
+  border-radius: 2px;
+  transition: height 0.15s ease;
+}
+
+.siri-hud-equalizer.active i {
+  animation: siriEqualizerPulse 0.8s ease-in-out infinite alternate;
+}
+
+.siri-hud-equalizer.active i:nth-child(2) { animation-delay: 0.15s; }
+.siri-hud-equalizer.active i:nth-child(3) { animation-delay: 0.3s; }
+.siri-hud-equalizer.active i:nth-child(4) { animation-delay: 0.45s; }
+.siri-hud-equalizer.active i:nth-child(5) { animation-delay: 0.2s; }
+.siri-hud-equalizer.active i:nth-child(6) { animation-delay: 0.35s; }
+
+@keyframes siriEqualizerPulse {
+  0% { height: 4px; background: #00f2fe; }
+  50% { height: 16px; background: #818cf8; }
+  100% { height: 8px; background: #ec4899; }
+}
+
+/* Siri Quick Action Buttons */
+.siri-hud-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.siri-mic-toggle-btn {
+  flex: 1;
+  background: linear-gradient(135deg, #0ea5e9, #0284c7);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  color: #ffffff;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+
+.siri-mic-toggle-btn:hover {
+  background: linear-gradient(135deg, #38bdf8, #0ea5e9);
+  box-shadow: 0 0 15px rgba(14, 165, 233, 0.4);
+}
+
+.siri-mic-toggle-btn.listening {
+  background: linear-gradient(135deg, #f43f5e, #be123c);
+  border-color: #f43f5e;
+  box-shadow: 0 0 18px rgba(244, 63, 94, 0.5);
+  animation: siriOrbActive 1s infinite alternate;
+}
+
+.siri-action-icon-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.2s ease;
+}
+
+.siri-action-icon-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
