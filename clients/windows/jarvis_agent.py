@@ -35,8 +35,9 @@ class JarvisAgent:
         elif self.gemini_key:
             self.gclient = genai.Client(api_key=self.gemini_key)
             self.chat = self.gclient.chats.create(
-                model="gemini-2.5-flash",
+                model="gemini-3.6-flash",
                 config=types.GenerateContentConfig(
+
                     system_instruction=JARVIS_HUMAN_PROMPT,
                     tools=ALL_TOOLS,
                     temperature=0.7

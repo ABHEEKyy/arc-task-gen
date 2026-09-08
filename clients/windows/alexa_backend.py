@@ -140,12 +140,13 @@ class SpeechOutput:
         self._worker.join(timeout=2)
 
     def _run(self) -> None:
-        if os.getenv("RIME_API_KEY"):
+        rime_key = os.getenv("RIME_API_KEY")
+        if rime_key and rime_key != "your_rime_api_key":
             try:
                 self._run_websocket()
                 return
             except Exception as error:
-                print(f"Rime WebSocket unavailable; using HTTP fallback: {error}")
+                print(f"[TTS Info]: Rime WebSocket unavailable ({error}); using local/HTTP fallback.")
         self._run_http_fallback()
 
     def _run_websocket(self) -> None:
@@ -205,24 +206,34 @@ class SpeechOutput:
 
     def _speak_http(self, text: str) -> None:
         api_key = os.getenv("RIME_API_KEY")
-        if not api_key:
-            print(f"Assistant: {text}")
-            return
-        response = requests.post(
-            RIME_TTS_URL,
-            json={
-                "text": text,
-                "speaker": os.getenv("RIME_VOICE", "celeste"),
-                "speedAlpha": float(os.getenv("RIME_SPEED_ALPHA", "1.05")),
-                "samplingRate": 24_000,
-            },
-            headers={"Authorization": f"Bearer {api_key}"},
-            timeout=20,
-        )
-        response.raise_for_status()
-        audio, sample_rate = sf.read(io.BytesIO(response.content), dtype="float32")
-        sd.play(audio, sample_rate)
-        sd.wait()
+        if api_key and api_key != "your_rime_api_key":
+            try:
+                response = requests.post(
+                    RIME_TTS_URL,
+                    json={
+                        "text": text,
+                        "speaker": os.getenv("RIME_VOICE", "celeste"),
+                        "speedAlpha": float(os.getenv("RIME_SPEED_ALPHA", "1.05")),
+                        "samplingRate": 24_000,
+                    },
+                    headers={"Authorization": f"Bearer {api_key}"},
+                    timeout=20,
+                )
+                response.raise_for_status()
+                audio, sample_rate = sf.read(io.BytesIO(response.content), dtype="float32")
+                sd.play(audio, sample_rate)
+                sd.wait()
+                return
+            except Exception as e:
+                print(f"[Rime Cloud TTS Note]: {e}; using Windows native voice.")
+
+        # Local zero-lag Windows SAPI5 voice
+        try:
+            from windows_voice_controller import speak_jarvis
+            speak_jarvis(text)
+        except Exception as e:
+            print(f"[Local TTS Error]: {e}")
+
 
     def _play_pcm(self, audio: bytes) -> None:
         with self._output_lock:
@@ -308,6 +319,10 @@ class ConversationalController(VoiceController):
         return float(np.sqrt(np.mean(samples.astype(np.float32) ** 2))) if samples.size else 0.0
 
     def execute_turn(self, text: str) -> None:
+        if hasattr(self, "agent") and self.agent is not None:
+            self.agent.handle_user_query(text)
+            return
+
         self.history.append({"role": "user", "content": text})
         self.history = [self.history[0]] + self.history[-MAX_HISTORY_MESSAGES:]
         
@@ -323,6 +338,7 @@ class ConversationalController(VoiceController):
             self.output.say_sentence(reply)
         except Exception as e:
             print(f"Gemini execution error: {e}")
+
 
     def run(self) -> None:
         import openwakeword

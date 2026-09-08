@@ -45,7 +45,8 @@ def get_mem0_engine():
                         "provider": "gemini",
                         "config": {
                             "api_key": gemini_key,
-                            "model": "gemini-2.5-flash"
+                            "model": "gemini-3.6-flash"
+
                         }
                     }
                 }

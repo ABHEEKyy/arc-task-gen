@@ -56,7 +56,14 @@ class WindowsController:
     @staticmethod
     def launch_application(app_name: str) -> str:
         """Reliably opens Windows applications, URLs, or Windows Store apps."""
-        clean_name = app_name.lower().strip().replace("the ", "")
+        clean_name = app_name.lower().strip()
+        for prefix in ["open ", "run ", "launch ", "execute ", "start ", "the "]:
+            if clean_name.startswith(prefix):
+                clean_name = clean_name[len(prefix):].strip()
+        for prefix in ["open ", "run ", "launch ", "execute ", "start ", "the "]:
+            if clean_name.startswith(prefix):
+                clean_name = clean_name[len(prefix):].strip()
+
 
         SYSTEM_COMMANDS = {
             "notepad": "notepad.exe",
@@ -83,7 +90,68 @@ class WindowsController:
             webbrowser.open(url)
             return f"Opened {url}"
 
-        # 2. Native Windows Shell os.startfile()
+        # 2. Batch files (.bat / .cmd) and local executable scripts
+        # Case A: User generically asks to "open the bat file" or "run bat file"
+        if clean_name in ["bat file", "batch file", "the bat file", "the batch file", "bat", "batch", "script", "the script"]:
+            # Auto-find the primary batch file in the repository or workspace
+            potential_roots = [
+                os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")),
+                os.path.dirname(__file__),
+                os.getcwd(),
+                os.path.expanduser("~/Desktop"),
+            ]
+            for proot in potential_roots:
+                if os.path.isdir(proot):
+                    for root_dir, _, files in os.walk(proot):
+                        for f in files:
+                            if f.lower().endswith(".bat") and not f.startswith("."):
+                                abs_bat = os.path.join(root_dir, f)
+                                try:
+                                    subprocess.Popen(f'start "" "{abs_bat}"', shell=True)
+                                    return f"Automatically opened batch file: {f}"
+                                except Exception as e:
+                                    return f"Failed to run batch file {f}: {e}"
+
+        # Case B: Specific file name or path requested
+        bat_name = clean_name.replace("batch file", "").replace("bat file", "").strip()
+        candidates = [
+            clean_name,
+            app_name.strip(),
+            bat_name,
+            f"{bat_name}.bat",
+            f"{bat_name}.cmd",
+        ]
+        search_dirs = [
+            os.getcwd(),
+            os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")),
+            os.path.dirname(__file__),
+            os.path.expanduser("~/Desktop"),
+            os.path.expanduser("~/Downloads"),
+            os.path.expanduser("~"),
+        ]
+        for cand in candidates:
+            if not cand:
+                continue
+            for sdir in search_dirs:
+                target_path = os.path.join(sdir, cand)
+                if os.path.isfile(target_path) and target_path.lower().endswith((".bat", ".cmd", ".exe", ".ps1")):
+                    abs_p = os.path.abspath(target_path)
+                    try:
+                        subprocess.Popen(f'start "" "{abs_p}"', shell=True)
+                        return f"Successfully executed batch script: {os.path.basename(abs_p)}"
+                    except Exception as e:
+                        return f"Failed to execute batch file {os.path.basename(abs_p)}: {e}"
+
+
+        # If explicitly requesting a .bat or .cmd by name, try direct shell start
+        if clean_name.endswith((".bat", ".cmd")):
+            try:
+                subprocess.Popen(f'start "" "{clean_name}"', shell=True)
+                return f"Executed {clean_name}"
+            except Exception:
+                pass
+
+        # 3. Native Windows Shell os.startfile()
         if clean_name in SYSTEM_COMMANDS:
             target = SYSTEM_COMMANDS[clean_name]
             try:
@@ -96,7 +164,7 @@ class WindowsController:
                 except Exception as e:
                     print(f"[Launch Note]: {e}", flush=True)
 
-        # 3. Try AppOpener (Matches Start Menu & UWP Store apps)
+        # 4. Try AppOpener (Matches Start Menu & UWP Store apps)
         try:
             from AppOpener import open as open_app
             open_app(clean_name, match_closest=True, throw_error=True)
@@ -104,7 +172,7 @@ class WindowsController:
         except Exception:
             pass
 
-        # 4. Fallback: Windows Start-Process via PowerShell
+        # 5. Fallback: Windows Start-Process via PowerShell
         try:
             cmd = f'powershell -Command "Start-Process \'{clean_name}\'"'
             res = subprocess.run(cmd, shell=True, capture_output=True, text=True)
