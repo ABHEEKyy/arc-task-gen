@@ -18,12 +18,17 @@ class LocalJarvisTTS:
             self.model = None
             return
 
-        print("[Init]: Initializing Coqui XTTS v2 on GPU...")
-        self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        if self.device != "cuda":
-            print("[Warning]: CUDA not detected! Voice generation will run on CPU.")
+        os.environ["COQUI_TOS_AGREED"] = "1"
+        self.device = "cpu"
 
         try:
+            # Monkeypatch missing functions in newer transformers versions for Coqui TTS compatibility
+            import transformers.pytorch_utils
+            if not hasattr(transformers.pytorch_utils, "isin_mps_friendly"):
+                def isin_mps_friendly(elements, test_elements):
+                    return torch.isin(elements, test_elements)
+                transformers.pytorch_utils.isin_mps_friendly = isin_mps_friendly
+
             from TTS.tts.configs.xtts_config import XttsConfig
             from TTS.tts.models.xtts import Xtts
             from TTS.utils.manage import ModelManager
@@ -36,12 +41,13 @@ class LocalJarvisTTS:
             self.model.to(self.device)
 
             print("[Init]: Computing Paul Bettany speaker latents...")
+            ref_str = str(reference_path[0]) if isinstance(reference_path, (list, tuple)) else str(reference_path)
             self.gpt_cond_latent, self.speaker_embedding = self.model.get_conditioning_latents(
-                audio_path=[reference_path]
+                audio_path=[ref_str]
             )
             print("[Init]: J.A.R.V.I.S. XTTS v2 voice model ready.\n")
         except Exception as e:
-            print(f"[Error]: Failed to load local XTTS v2 model: {e}")
+            print(f"[Error]: Failed to load local XTTS v2 model: {e}", flush=True)
             self.model = None
 
     def speak_stream(self, text: str) -> None:
