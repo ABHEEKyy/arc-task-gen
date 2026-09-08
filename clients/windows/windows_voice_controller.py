@@ -479,7 +479,7 @@ class VoiceController:
                 clean_command = command.replace("Hey Jarvis", "").replace("hey jarvis", "").strip()
                 
                 if "siri" in clean_command.lower():
-                    print("[Jarvis]: Yielding control to Siri, Sir.", flush=True)
+                    print("\n[Jarvis]: 'Hey Siri' detected. Shutting down Jarvis completely to release microphone for Siri...", flush=True)
                     import sys, subprocess
                     if sys.platform == "darwin":
                         try:
@@ -487,6 +487,8 @@ class VoiceController:
                             subprocess.run(["osascript", "-e", 'tell application "System Events" to key code 49 using {fn}'], capture_output=True)
                         except Exception:
                             pass
+                    self.stop_event.set()
+                    break
                 elif clean_command and len(clean_command) > 2 and "hello, sir" not in clean_command.lower() and "pleasure helping" not in clean_command.lower():
                     print(f">> Transcribed Command: \"{clean_command}\"", flush=True)
                     # Always execute system action (like launching apps, volume control, window management)
