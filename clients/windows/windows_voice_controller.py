@@ -296,7 +296,29 @@ class VoiceController:
         
         # 1. Immediate action execution
         executed = False
-        if any(w in text_lower for w in ["open ", "launch ", "start "]):
+        from win_advanced_tools import SystemController
+
+        if any(w in text_lower for w in ["kill", "terminate", "stop process", "close process"]):
+            for kw in ["kill ", "terminate ", "stop process ", "close process "]:
+                if kw in text_lower:
+                    proc_name = text_lower.split(kw, 1)[1].strip()
+                    res = SystemController.terminate_process(proc_name)
+                    print(f"[Jarvis Action]: {res}", flush=True)
+                    executed = True
+                    break
+        elif any(w in text_lower for w in ["system status", "telemetry", "cpu usage", "ram usage", "how is the system"]):
+            res = SystemController.get_system_telemetry()
+            print(f"[Jarvis Telemetry]: {res}", flush=True)
+            speak_jarvis(res)
+            return
+        elif " on " in text_lower and any(b in text_lower for b in ["chrome", "edge", "brave", "firefox"]):
+            # Browser targeted site launch e.g. "open youtube on chrome"
+            parts = text_lower.replace("open ", "").replace("launch ", "").split(" on ", 1)
+            site, browser = parts[0].strip(), parts[1].strip()
+            res = SystemController.open_website(site, browser)
+            print(f"[Jarvis Action]: {res}", flush=True)
+            executed = True
+        elif any(w in text_lower for w in ["open ", "launch ", "start "]):
             # Extract target app name after action verb
             for verb in ["open ", "launch ", "start "]:
                 if verb in text_lower:
@@ -352,6 +374,13 @@ class VoiceController:
             if "jarvis" in os.path.basename(path).lower() and os.path.basename(path) not in models_to_load:
                 models_to_load.append(path)
 
+        # Set process priority to BELOW_NORMAL to prevent CPU micro-stutter in games/browsers
+        try:
+            import psutil
+            psutil.Process(os.getpid()).nice(psutil.BELOW_NORMAL_PRIORITY_CLASS)
+        except Exception:
+            pass
+
         model = Model(wakeword_models=models_to_load)
         print("\n==========================================", flush=True)
         print("Jarvis Ready! Say 'Hello Jarvis' to give commands!", flush=True)
@@ -367,6 +396,7 @@ class VoiceController:
                 if score > 0.15 and score < WAKE_THRESHOLD:
                     print(f"[Mic Signal Detected] Score: {score:.2f} (Needs >= {WAKE_THRESHOLD})", flush=True)
                 if score < WAKE_THRESHOLD:
+                    time.sleep(0.002)
                     continue
                 print(f"\n>> [Wake Word Detected! (score: {score:.2f})]", flush=True)
                 play_chime()

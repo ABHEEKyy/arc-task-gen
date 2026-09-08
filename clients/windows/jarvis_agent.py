@@ -6,6 +6,7 @@ load_dotenv()
 from google import genai
 from google.genai import types
 from win_tools import WindowsController
+from win_advanced_tools import SystemController
 from jarvis_brain import BrainTools
 from jarvis_memory import MemoryBrain, JARVIS_HUMAN_PROMPT
 
@@ -14,6 +15,9 @@ ALL_TOOLS = [
     WindowsController.system_volume,
     WindowsController.window_management,
     WindowsController.type_text,
+    SystemController.open_website,
+    SystemController.terminate_process,
+    SystemController.get_system_telemetry,
     BrainTools.web_search,
     BrainTools.get_weather
 ]
@@ -103,8 +107,10 @@ class JarvisAgent:
                     model=self.model_name,
                     messages=turn_messages
                 )
-                spoken_reply = (response.choices[0].message.content or "").replace("*", "").replace("#", "").strip()
-                self.conversation_history.append({"role": "assistant", "content": spoken_reply})
+            # Enforce 6-turn sliding window history cap
+            MAX_HISTORY = 6
+            if len(self.conversation_history) > (MAX_HISTORY + 1):
+                self.conversation_history = [self.conversation_history[0]] + self.conversation_history[-MAX_HISTORY:]
 
             if not spoken_reply:
                 spoken_reply = "At your service, Sir."

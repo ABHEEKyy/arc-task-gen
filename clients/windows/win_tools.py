@@ -87,10 +87,15 @@ class WindowsController:
         }
 
         # 1. Direct web URLs
-        if clean_name.startswith("http://") or clean_name.startswith("https://") or "youtube" in clean_name or "google" in clean_name:
-            url = clean_name if clean_name.startswith("http") else f"https://{clean_name}.com"
-            webbrowser.open(url)
-            return f"Opened {url}"
+        if clean_name.startswith("http://") or clean_name.startswith("https://"):
+            webbrowser.open(clean_name)
+            return f"Opened {clean_name}"
+        elif clean_name == "youtube":
+            webbrowser.open("https://www.youtube.com")
+            return "Opened https://www.youtube.com"
+        elif clean_name == "google":
+            webbrowser.open("https://www.google.com")
+            return "Opened https://www.google.com"
 
         # 2. Batch files (.bat / .cmd) and local executable scripts
         # Case A: User generically asks to "open the bat file" or "run bat file"
