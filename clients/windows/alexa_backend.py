@@ -319,6 +319,10 @@ class ConversationalController(VoiceController):
         return float(np.sqrt(np.mean(samples.astype(np.float32) ** 2))) if samples.size else 0.0
 
     def execute_turn(self, text: str) -> None:
+        if hasattr(self, "agent") and self.agent is not None:
+            self.agent.handle_user_query(text)
+            return
+
         self.history.append({"role": "user", "content": text})
         self.history = [self.history[0]] + self.history[-MAX_HISTORY_MESSAGES:]
         
@@ -334,6 +338,7 @@ class ConversationalController(VoiceController):
             self.output.say_sentence(reply)
         except Exception as e:
             print(f"Gemini execution error: {e}")
+
 
     def run(self) -> None:
         import openwakeword
