@@ -223,6 +223,8 @@ class VoiceController:
             with open(path, "rb") as audio_file:
                 audio_data = audio_file.read()
 
+            last_err = None
+
             # 1. Try SpeechRecognition for instant STT
             try:
                 import speech_recognition as sr
@@ -233,13 +235,13 @@ class VoiceController:
                     if text and len(text.strip()) > 1:
                         print(f">> [Recognized Voice]: '{text.strip()}'", flush=True)
                         return text.strip()
-            except Exception:
-                pass
+            except Exception as e:
+                last_err = e
 
             # 2. Try Gemini Speech STT
             try:
                 response = self.gclient.models.generate_content(
-                    model="gemini-2.5-flash",
+                    model="gemini-3.6-flash",
                     contents=[
                         types.Part.from_bytes(data=audio_data, mime_type="audio/wav"),
                         "Transcribe the audio accurately into English text. Output ONLY the raw transcribed text. If there is no audible human voice, output nothing."
@@ -248,7 +250,7 @@ class VoiceController:
                 if response and response.text:
                     return (response.text or "").strip()
             except Exception as ex:
-                pass
+                last_err = ex
 
             # 3. Try local faster-whisper if available
             try:
@@ -260,8 +262,8 @@ class VoiceController:
                 if fw_text:
                     print(f">> [Local Faster-Whisper Used]: '{fw_text}'", flush=True)
                     return fw_text
-            except Exception:
-                pass
+            except Exception as e:
+                last_err = e
 
             # 4. Fallback to free Google Speech Recognition
             try:
@@ -274,7 +276,7 @@ class VoiceController:
                         print(f">> [Fallback Local Transcriber Used]: '{text}'", flush=True)
                         return text
             except Exception as sr_err:
-                pass
+                last_err = sr_err
 
             if last_err:
                 print(f"Transcription model error: {last_err}")
