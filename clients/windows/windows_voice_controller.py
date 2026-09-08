@@ -429,6 +429,18 @@ class VoiceController:
                 print(f"\n>> [Wake Word Detected! (score: {score:.2f})]", flush=True)
                 play_chime()
                 
+                # Open terminal window for active visual execution
+                import sys, subprocess
+                try:
+                    if sys.platform == "darwin":
+                        script_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "run_jarvis.sh"))
+                        subprocess.Popen(["osascript", "-e", f'tell application "Terminal" to do script "{script_path}"'])
+                    else:
+                        bat_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "Run_Jarvis.bat"))
+                        subprocess.Popen(f'start cmd /k "{bat_path}"', shell=True)
+                except Exception as ex:
+                    print(f"[Terminal Launch Note]: {ex}", flush=True)
+
                 # 1. Greet with Hello in British Voice (Microphone stream paused during speech)
                 greeting = "Hello, Sir. How may I assist you?"
                 print(f"[Jarvis]: {greeting}", flush=True)
