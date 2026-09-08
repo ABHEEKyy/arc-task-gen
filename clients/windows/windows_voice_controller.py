@@ -38,7 +38,7 @@ FRAME_SAMPLES = 1280
 BUFFER_SECONDS = 1.5
 MAX_BUFFER_FRAMES = int(BUFFER_SECONDS / (FRAME_SAMPLES / SAMPLE_RATE))
 COMMAND_SECONDS = 6
-WAKE_THRESHOLD = 0.45
+WAKE_THRESHOLD = 0.25
 
 TOOLS = [
     {
@@ -340,14 +340,9 @@ class VoiceController:
         elif "maximize" in text_lower:
             win.window_management("maximize")
             executed = True
-        else:
+        elif not executed:
             res = win.launch_application(text_lower)
             print(f"[Jarvis Action]: {res}", flush=True)
-
-        # 2. Concurrently speak sign-off
-        reply = "It was a pleasure helping, Sir."
-        print(f"[Jarvis]: {reply}", flush=True)
-        speak_jarvis(reply)
 
     def run(self) -> None:
         openwakeword.utils.download_models()
@@ -436,10 +431,12 @@ class VoiceController:
                 
                 if clean_command and len(clean_command) > 2 and "hello, sir" not in clean_command.lower() and "pleasure helping" not in clean_command.lower():
                     print(f">> Transcribed Command: \"{clean_command}\"", flush=True)
+                    # Always execute system action (like launching apps, volume control, window management)
+                    self.execute(clean_command)
+                    # Also pass to agent for conversational reply if agent exists
                     if hasattr(self, 'agent') and self.agent is not None:
-                        self.agent.handle_user_query(clean_command)
-                    else:
-                        self.execute(clean_command)
+                        import threading
+                        threading.Thread(target=self.agent.handle_user_query, args=(clean_command,), daemon=True).start()
                 else:
                     timeout_msg = "Let's hope for next time, Sir."
                     print(f"[Jarvis]: {timeout_msg}", flush=True)

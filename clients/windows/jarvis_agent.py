@@ -25,25 +25,36 @@ class JarvisAgent:
         self.gemini_key = os.getenv("GEMINI_API_KEY")
         self.openai_key = os.getenv("OPENAI_API_KEY")
 
-        if self.gemini_key:
-            self.gclient = genai.Client(api_key=self.gemini_key)
-            self.chat = self.gclient.chats.create(
-                model="gemini-3.6-flash",
-                config=types.GenerateContentConfig(
-                    system_instruction=JARVIS_HUMAN_PROMPT,
-                    tools=ALL_TOOLS,
-                    temperature=0.7
+        try:
+            import ollama
+            # Test connection to local Ollama daemon
+            ollama.list()
+            self.provider = "ollama"
+            self.model_name = os.getenv("OLLAMA_MODEL", "qwen2.5:3b")
+            print(f"[Jarvis Agent]: Using local Ollama model '{self.model_name}'", flush=True)
+        except Exception:
+            if self.gemini_key:
+                self.gclient = genai.Client(api_key=self.gemini_key)
+                self.chat = self.gclient.chats.create(
+                    model="gemini-3.6-flash",
+                    config=types.GenerateContentConfig(
+                        system_instruction=JARVIS_HUMAN_PROMPT,
+                        tools=ALL_TOOLS,
+                        temperature=0.7
+                    )
                 )
-            )
-            self.provider = "gemini"
-        elif self.openai_key:
-            from openai import OpenAI
-            self.o_client = OpenAI(api_key=self.openai_key)
-            self.conversation_history = [{"role": "system", "content": JARVIS_HUMAN_PROMPT}]
-            self.model_name = "gpt-4o-mini"
-            self.provider = "openai"
-        else:
-            raise RuntimeError("GEMINI_API_KEY environment variable is not set.")
+                self.provider = "gemini"
+            elif self.openai_key:
+                from openai import OpenAI
+                self.o_client = OpenAI(api_key=self.openai_key)
+                self.conversation_history = [{"role": "system", "content": JARVIS_HUMAN_PROMPT}]
+                self.model_name = "gpt-4o-mini"
+                self.provider = "openai"
+            else:
+                self.provider = "ollama"
+                self.model_name = "qwen2.5:3b"
+
+        self.conversation_history = [{"role": "system", "content": JARVIS_HUMAN_PROMPT}]
 
     def handle_user_query(self, transcript: str) -> None:
         """Processes user voice queries with memory context & multi-tool execution."""
@@ -60,8 +71,20 @@ class JarvisAgent:
                 response = self.chat.send_message(prompt_input)
                 spoken_reply = (response.text or "").replace("*", "").replace("#", "").replace("_", "").strip()
             
+            elif self.provider == "ollama":
+                import ollama
+                messages = list(self.conversation_history[-4:])
+                if user_context:
+                    messages.insert(-1, {"role": "system", "content": f"[Background user context: {user_context[:500]}]"})
+                messages.append({"role": "user", "content": transcript[:1000]})
+                self.conversation_history.append({"role": "user", "content": transcript[:1000]})
+
+                res = ollama.chat(model=self.model_name, messages=messages)
+                spoken_reply = (res.message.content or "").replace("*", "").replace("#", "").replace("_", "").strip()
+                self.conversation_history.append({"role": "assistant", "content": spoken_reply})
+
             else:
-                # Groq / OpenAI pipeline
+                # OpenAI pipeline
                 turn_messages = list(self.conversation_history[-4:])
                 if user_context:
                     # Truncate user context if it's too long
