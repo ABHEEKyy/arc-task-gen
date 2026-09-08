@@ -132,16 +132,25 @@ def get_local_jarvis_engine():
 
 
 def speak_jarvis(text: str) -> None:
-    """Instant TTS router: Local XTTS v2 (jarvis_reference.wav) -> ElevenLabs -> British Male PyTTSX3"""
-    # 1. Local XTTS v2 Voice Cloning from jarvis_reference.wav (Paul Bettany / JARVIS)
-    engine = get_local_jarvis_engine()
-    if engine and engine.model is not None:
-        try:
-            print(f"[Jarvis Voice Cloned]: Speaking via jarvis_reference.wav...", flush=True)
-            engine.speak_stream(text)
-            return
-        except Exception as ex:
-            print(f"[Local Voice Clone Note]: {ex}", flush=True)
+    """Instant TTS router: Fast Windows Native SAPI5 -> Cloud ElevenLabs"""
+    # 1. Windows Native SAPI5 (Instant Zero-Delay Execution)
+    try:
+        import pyttsx3
+        py_engine = pyttsx3.init()
+        voices = py_engine.getProperty('voices')
+        selected_voice = False
+        for v in voices:
+            v_name = v.name.lower()
+            if ('george' in v_name or 'david' in v_name or 'daniel' in v_name or 'uk' in v_name or 'british' in v_name or 'male' in v_name) and 'female' not in v_name:
+                py_engine.setProperty('voice', v.id)
+                selected_voice = True
+                break
+        py_engine.setProperty('rate', 190)
+        py_engine.say(text)
+        py_engine.runAndWait()
+        return
+    except Exception as e:
+        print(f"[Native Voice Note]: {e}", flush=True)
 
     eleven_key = os.getenv("ELEVENLABS_API_KEY")
     jarvis_voice_id = os.getenv("ELEVENLABS_JARVIS_VOICE_ID")
