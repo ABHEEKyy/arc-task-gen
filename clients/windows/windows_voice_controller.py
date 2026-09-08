@@ -501,5 +501,22 @@ def play_done_chime() -> None:
         winsound.Beep(587, 150)
 
 
+def ensure_single_instance() -> object:
+    """Enforce that only a single instance of the Jarvis Voice Controller terminal runs."""
+    import ctypes
+    import sys
+    mutex = ctypes.windll.kernel32.CreateMutexW(None, False, "JarvisVoiceController_SingleInstance_Mutex")
+    if ctypes.windll.kernel32.GetLastError() == 183:  # ERROR_ALREADY_EXISTS
+        print("[Single Instance]: J.A.R.V.I.S. terminal is already running. Bringing active window to front...", flush=True)
+        hwnd = ctypes.windll.user32.FindWindowW(None, "J.A.R.V.I.S. Conversational Terminal")
+        if hwnd:
+            ctypes.windll.user32.ShowWindow(hwnd, 9)  # SW_RESTORE
+            ctypes.windll.user32.SetForegroundWindow(hwnd)
+        sys.exit(0)
+    return mutex
+
+
 if __name__ == "__main__":
+    _mutex = ensure_single_instance()
     VoiceController().run()
+

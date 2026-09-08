@@ -7,5 +7,5 @@ echo     J.A.R.V.I.S. AMBIENT VOICE ASSISTANT ONLINE
 echo ===================================================
 echo.
 cd /d "%~dp0"
-py clients/windows/alexa_backend.py
+py clients/windows/windows_voice_controller.py
 pause

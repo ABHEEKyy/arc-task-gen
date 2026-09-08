@@ -16,26 +16,39 @@ WAKE_THRESHOLD = 0.45
 
 
 def launch_single_jarvis_window():
-    """Opens Run_Jarvis.bat ONLY if not already open."""
-    bat_path = os.path.join(os.path.dirname(__file__), "Run_Jarvis.bat")
-    if not os.path.exists(bat_path):
-        bat_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "Run_Jarvis.bat"))
+    """Opens Run_Jarvis.bat ONLY if not already open; focuses existing window if active."""
+    import ctypes
+    
+    # 1. Check if the terminal window already exists
+    hwnd = ctypes.windll.user32.FindWindowW(None, "J.A.R.V.I.S. Conversational Terminal")
+    if hwnd:
+        print("[Daemon Note]: Jarvis terminal window is already open. Bringing to front...", flush=True)
+        ctypes.windll.user32.ShowWindow(hwnd, 9)  # SW_RESTORE
+        ctypes.windll.user32.SetForegroundWindow(hwnd)
+        return
+
+    # 2. Check running processes via psutil
     try:
         import psutil
         for proc in psutil.process_iter(['name', 'cmdline']):
             cmdline = proc.info.get('cmdline') or []
             if any('windows_voice_controller.py' in str(arg) or 'Run_Jarvis.bat' in str(arg) for arg in cmdline):
-                print("[Daemon Note]: Jarvis terminal window is already active.", flush=True)
+                print("[Daemon Note]: Jarvis process is already active.", flush=True)
                 return
     except Exception:
         pass
 
+    # 3. Launch Run_Jarvis.bat once in visible interactive CMD window
+    bat_path = os.path.join(os.path.dirname(__file__), "Run_Jarvis.bat")
+    if not os.path.exists(bat_path):
+        bat_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "Run_Jarvis.bat"))
+
     try:
-        # Launch Run_Jarvis.bat in a visible interactive CMD window
-        print(f">> [Auto-Opening]: {bat_path}", flush=True)
+        print(f">> [Auto-Opening Single Instance]: {bat_path}", flush=True)
         subprocess.Popen(f'cmd.exe /c start "J.A.R.V.I.S. Conversational Terminal" "{bat_path}"', shell=True)
     except Exception as e:
         print(f"[Launch Error]: {e}", flush=True)
+
 
 
 
