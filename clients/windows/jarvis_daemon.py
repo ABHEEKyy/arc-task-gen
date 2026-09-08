@@ -1,8 +1,10 @@
-"""Background listener daemon that waits for 'Hey Jarvis' to open the single CMD window.
-Once opened, user says 'Hello Jarvis' inside the window to execute commands.
+"""Background listener daemon that waits for 'Hey Jarvis' to activate the floating Siri bubble.
+Instead of opening a CMD terminal window, it opens a sleek Siri-like HUD bubble in the top corner of the screen.
 """
 
 import os
+import sys
+import socket
 import subprocess
 import time
 import numpy as np
@@ -13,43 +15,37 @@ from openwakeword.model import Model
 SAMPLE_RATE = 16_000
 FRAME_SAMPLES = 1280
 WAKE_THRESHOLD = 0.45
+IPC_PORT = 8799
 
 
-def launch_single_jarvis_window():
-    """Opens Run_Jarvis.bat ONLY if not already open; focuses existing window if active."""
-    import ctypes
-    
-    # 1. Check if the terminal window already exists
-    hwnd = ctypes.windll.user32.FindWindowW(None, "J.A.R.V.I.S. Conversational Terminal")
-    if hwnd:
-        print("[Daemon Note]: Jarvis terminal window is already open. Bringing to front...", flush=True)
-        ctypes.windll.user32.ShowWindow(hwnd, 9)  # SW_RESTORE
-        ctypes.windll.user32.SetForegroundWindow(hwnd)
-        return
-
-    # 2. Check running processes via psutil
+def trigger_jarvis_bubble():
+    """Wakes the existing Siri Bubble via local socket IPC, or launches it with pythonw (no CMD window)."""
+    # 1. Try waking running bubble on port 8799
     try:
-        import psutil
-        for proc in psutil.process_iter(['name', 'cmdline']):
-            cmdline = proc.info.get('cmdline') or []
-            if any('windows_voice_controller.py' in str(arg) or 'Run_Jarvis.bat' in str(arg) for arg in cmdline):
-                print("[Daemon Note]: Jarvis process is already active.", flush=True)
-                return
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.settimeout(0.5)
+            s.connect(("127.0.0.1", IPC_PORT))
+            s.sendall(b"WAKE\n")
+            print("[Daemon]: Sent WAKE signal to active Siri bubble.", flush=True)
+            return
     except Exception:
         pass
 
-    # 3. Launch Run_Jarvis.bat once in visible interactive CMD window
-    bat_path = os.path.join(os.path.dirname(__file__), "Run_Jarvis.bat")
-    if not os.path.exists(bat_path):
-        bat_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "Run_Jarvis.bat"))
+    # 2. Launch jarvis_bubble.py via pythonw (frameless, no CMD console!)
+    bubble_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "jarvis_bubble.py"))
+    pythonw = sys.executable.replace("python.exe", "pythonw.exe")
+    if not os.path.exists(pythonw):
+        pythonw = "pythonw"
 
     try:
-        print(f">> [Auto-Opening Single Instance]: {bat_path}", flush=True)
-        subprocess.Popen(f'cmd.exe /c start "J.A.R.V.I.S. Conversational Terminal" "{bat_path}"', shell=True)
+        print(f">> [Auto-Opening Siri Bubble HUD]: {bubble_path}", flush=True)
+        subprocess.Popen([pythonw, bubble_path], cwd=os.path.dirname(bubble_path))
     except Exception as e:
-        print(f"[Launch Error]: {e}", flush=True)
-
-
+        print(f"[Bubble Launch Error]: {e}", flush=True)
+        try:
+            subprocess.Popen([sys.executable, bubble_path], cwd=os.path.dirname(bubble_path))
+        except Exception as e2:
+            print(f"[Fallback Launch Error]: {e2}", flush=True)
 
 
 def listen_for_hey_jarvis():
@@ -70,8 +66,8 @@ def listen_for_hey_jarvis():
     )
 
     print("\n==========================================", flush=True)
-    print("Background Daemon Listening...")
-    print("Say 'Hey Jarvis' to open the single Jarvis window!", flush=True)
+    print("Background Daemon Listening for 'Hey Jarvis'...")
+    print("Wake word will open the Siri-style HUD bubble in the top corner!", flush=True)
     print("==========================================\n", flush=True)
 
     try:
@@ -80,16 +76,16 @@ def listen_for_hey_jarvis():
             prediction = model.predict(np.frombuffer(frame, dtype=np.int16))
             score = max([v for k, v in prediction.items() if "jarvis" in k.lower()], default=0.0)
             if score >= WAKE_THRESHOLD:
-                print(f"\n>> ['Hey Jarvis' Detected! Opening single window...]", flush=True)
+                print(f"\n>> ['Hey Jarvis' Detected! Activating Siri Bubble...]", flush=True)
                 import winsound
                 winsound.Beep(880, 100)
                 winsound.Beep(1320, 150)
-                
-                launch_single_jarvis_window()
-                
+
+                trigger_jarvis_bubble()
+
                 if hasattr(model, "reset"):
                     model.reset()
-                time.sleep(5)
+                time.sleep(4)
     finally:
         stream.stop_stream()
         stream.close()

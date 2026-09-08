@@ -80,6 +80,20 @@ Atomic Drain of Pre-Roll Buffer      Trigger local chime (sounddevice)
   py clients/windows/windows_voice_controller.py
   ```
 
+### Mode C: Floating Siri HUD Bubble (`jarvis_bubble.py`)
+- **Interactive, ambient top-corner HUD overlay.**
+- **Features**:
+  - Replaces clunky terminal windows with an always-on-top, frameless floating capsule in the top corner of the screen.
+  - Features a multi-ring, animated glowing Siri orb responsive to voice audio levels and system states.
+  - Runs full Jarvis voice interaction (chimes, British greeting, Gemini tool calling, system automation, TTS).
+  - Single-instance IPC on port `8799` — triggered automatically by the background daemon `jarvis_daemon.py` or double-clicking `Run_Jarvis.bat`.
+  - Click-to-talk: Click the glowing orb anytime to speak immediately without saying the wake word.
+- **Run command**:
+  ```powershell
+  pyw clients/windows/jarvis_bubble.py
+  ```
+  *(or double-click `Run_Jarvis.bat`)*
+
 ---
 
 ## 3. Function Calling & Automation Tools

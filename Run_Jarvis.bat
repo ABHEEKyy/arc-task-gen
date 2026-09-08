@@ -1,11 +1,5 @@
 @echo off
-title J.A.R.V.I.S. Conversational Terminal
-mode con: cols=100 lines=30
-color 0A
-echo ===================================================
-echo     J.A.R.V.I.S. AMBIENT VOICE ASSISTANT ONLINE
-echo ===================================================
-echo.
+title J.A.R.V.I.S. Voice Assistant
 cd /d "%~dp0"
-py clients/windows/windows_voice_controller.py
-pause
+start "" pythonw clients\windows\jarvis_bubble.py
+exit
