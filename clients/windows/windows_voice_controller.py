@@ -453,8 +453,8 @@ class VoiceController:
                 
                 baseline = np.mean(ambient_rms) if ambient_rms else 100.0
                 silence_threshold_rms = max(baseline * 1.2, 120.0)
-                silence_duration_ms = 350  # 350ms instant pause reaction time
-                max_seconds = 8
+                silence_duration_ms = 900  # 900ms pause reaction time
+                max_seconds = 12
                 
                 frames = []
                 speech_started = False
@@ -492,7 +492,6 @@ class VoiceController:
                     import sys, subprocess
                     if sys.platform == "darwin":
                         try:
-                            # Trigger native macOS Siri via AppleScript shortcut
                             subprocess.run(["osascript", "-e", 'tell application "System Events" to key code 49 using {fn}'], capture_output=True)
                         except Exception:
                             pass
