@@ -334,11 +334,11 @@ class VoiceController:
                     print(f"[Jarvis Action]: {res}", flush=True)
                     executed = True
                     break
-        elif any(w in text_lower for w in ["system status", "telemetry", "cpu usage", "ram usage", "how is the system"]):
-            res = SystemController.get_system_telemetry()
-            print(f"[Jarvis Telemetry]: {res}", flush=True)
-            speak_jarvis(res)
-            return
+        elif any(w in text_lower for w in ["who is", "who was", "what is", "what was", "when did", "where is", "search for", "tell me about"]):
+            from jarvis_brain import BrainTools
+            search_res = BrainTools.web_search(text_lower)
+            print(f"[Jarvis Search Results]: {search_res[:150]}...", flush=True)
+            executed = True
         elif " on " in text_lower and any(b in text_lower for b in ["chrome", "edge", "brave", "firefox"]):
             # Browser targeted site launch e.g. "open youtube on chrome"
             parts = text_lower.replace("open ", "").replace("launch ", "").split(" on ", 1)
