@@ -444,8 +444,8 @@ class VoiceController:
                 
                 baseline = np.mean(ambient_rms) if ambient_rms else 100.0
                 silence_threshold_rms = max(baseline * 1.2, 120.0)
-                silence_duration_ms = 900  # 900ms pause reaction time
-                max_seconds = 12
+                silence_duration_ms = 350  # 350ms instant pause reaction time
+                max_seconds = 8
                 
                 frames = []
                 speech_started = False
