@@ -1,0 +1,15 @@
+[
+  {
+    "id": "a026da85-cf15-4f9d-bc6a-8b2f65547df2",
+    "transcript": "The cold room at North Dock is reading 12 degrees. Product is still inside, and Maya from facilities is on site. Please get the temperature back under control before the morning shift. This is urgent.",
+    "issue": "Cold room temperature is out of range",
+    "location": "North Dock",
+    "owner": "No owner named",
+    "urgency": "critical",
+    "nextStep": "Stabilize the cold room and confirm it is under 4 degrees before the morning shift.",
+    "spokenText": "critical priority. Cold room temperature is out of range at North Dock. No owner named is on site. Next move: Stabilize the cold room and confirm it is under 4 degrees before the morning shift.",
+    "status": "open",
+    "createdAt": "2026-09-08T02:32:02.128Z",
+    "updatedAt": "2026-09-08T02:32:02.128Z"
+  }
+]

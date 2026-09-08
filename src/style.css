@@ -1,0 +1,55 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,700;1,700&display=swap');
+
+:root { color: #1e2b29; background: #f2eee5; font-family: 'Manrope', sans-serif; font-synthesis: none; }
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 320px; background: radial-gradient(circle at 88% 4%, #e9d8bc 0, transparent 27%), #f2eee5; }
+button { font: inherit; }
+.shell { max-width: 1280px; margin: auto; padding: 30px 6vw 0; min-height: 100vh; display: flex; flex-direction: column; }
+.topbar { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #cfc7b7; padding-bottom: 22px; font-size: 13px; letter-spacing: .04em; }
+.brand, .status { display: flex; align-items: center; gap: 10px; }
+.brand { font-weight: 800; }
+.brand-mark { display: grid; place-items: center; width: 29px; height: 29px; background: #d4503b; color: white; font: 500 10px 'DM Mono'; letter-spacing: 0; }
+.status { color: #64706b; font: 11px 'DM Mono'; text-transform: uppercase; }
+.status-dot { width: 7px; height: 7px; background: #5ca176; border-radius: 50%; box-shadow: 0 0 0 4px #d6e5d9; }
+.intro { padding: 74px 0 55px; max-width: 820px; }
+.kicker, .panel-label, .box-label, .fact-grid span, .next-step span, footer span { font: 500 10px 'DM Mono'; letter-spacing: .12em; color: #7b8177; }
+.kicker { color: #c14f3c; margin: 0 0 19px; }
+h1 { margin: 0; font-size: clamp(42px, 6vw, 82px); line-height: .98; letter-spacing: -.06em; font-weight: 800; }
+h1 em { font-family: 'Playfair Display', serif; font-weight: 700; letter-spacing: -.05em; color: #bc513e; }
+.lede { max-width: 520px; margin: 29px 0 0; color: #64706b; line-height: 1.7; font-size: 15px; }
+.workspace { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; background: #cfc7b7; border: 1px solid #cfc7b7; }
+.capture-panel, .brief-panel { background: #f7f4ed; min-height: 525px; padding: 29px 34px; }
+.brief-panel { background: #e7eee9; }
+.panel-label { display: flex; gap: 15px; color: #5d6b61; }
+.panel-label span { color: #c14f3c; }
+.record-button { border: 0; background: transparent; display: flex; flex-direction: column; align-items: center; gap: 18px; margin: 46px auto 24px; color: #1e2b29; cursor: pointer; font-weight: 700; }
+.record-ring { display: grid; place-items: center; width: 154px; height: 154px; border: 1px solid #cfc7b7; border-radius: 50%; position: relative; transition: .2s ease; }
+.record-ring::after { content: ''; position: absolute; inset: 10px; border: 1px solid #dcd4c5; border-radius: 50%; }
+.record-icon { width: 35px; height: 45px; border: 4px solid #c14f3c; border-radius: 20px; position: relative; z-index: 1; }
+.record-icon::after { content: ''; position: absolute; width: 45px; height: 45px; left: -9px; top: 18px; border: 3px solid #c14f3c; border-top: 0; border-radius: 0 0 25px 25px; }
+.recording .record-ring { background: #f5d8d0; transform: scale(1.04); }
+.recording .record-icon { background: #c14f3c; border-radius: 4px; width: 28px; height: 28px; border-width: 0; }
+.recording .record-icon::after { display: none; }
+.hint { max-width: 340px; margin: auto; text-align: center; color: #788078; font-size: 12px; line-height: 1.65; }
+.text-button { display: block; border: 0; background: none; color: #c14f3c; margin: 18px auto 32px; cursor: pointer; font-size: 12px; font-weight: 700; }
+.text-button span { margin-left: 7px; font-size: 18px; vertical-align: -1px; }
+.transcript-box { border-top: 1px solid #d8d0c1; padding-top: 15px; }
+.transcript-box p { color: #58645d; font-size: 12px; line-height: 1.6; margin: 9px 0 0; min-height: 39px; }
+.empty-state { height: 430px; display: grid; place-content: center; text-align: center; color: #7b8a80; }
+.empty-state p { font-size: 12px; }
+.waveform { display: flex; align-items: center; gap: 5px; justify-content: center; height: 55px; }
+.waveform i { width: 3px; background: #90aa9a; border-radius: 3px; animation: pulse 1.4s ease-in-out infinite; }
+.waveform i:nth-child(1), .waveform i:nth-child(7) { height: 19px; } .waveform i:nth-child(2), .waveform i:nth-child(6) { height: 34px; animation-delay: .15s; } .waveform i:nth-child(3), .waveform i:nth-child(5) { height: 48px; animation-delay: .3s; } .waveform i:nth-child(4) { height: 28px; animation-delay: .45s; }
+@keyframes pulse { 50% { transform: scaleY(.5); opacity: .55; } }
+.hidden { display: none; }
+.brief { padding-top: 52px; }
+.urgency-row { display: flex; justify-content: space-between; align-items: center; font: 10px 'DM Mono'; color: #78877d; }
+.urgency { padding: 6px 8px; color: #a43e30; background: #f8d6ce; font-size: 10px; letter-spacing: .08em; } .urgency.standard { color: #536b5b; background: #d4e6d7; } .urgency.high { color: #886423; background: #f1e1b9; }
+.brief h2 { font-size: clamp(26px, 3vw, 39px); line-height: 1.08; letter-spacing: -.04em; max-width: 480px; margin: 25px 0 37px; }
+.fact-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; border-top: 1px solid #c8d7cc; padding-top: 18px; }
+.fact-grid span, .next-step span { display: block; margin-bottom: 8px; } .fact-grid strong { font-size: 14px; font-weight: 600; }
+.next-step { margin-top: 30px; border-left: 3px solid #c14f3c; padding-left: 15px; } .next-step p { margin: 0; font-size: 14px; line-height: 1.55; max-width: 450px; }
+.replay-button { margin-top: 31px; padding: 13px 17px; border: 1px solid #8da194; background: transparent; color: #315146; cursor: pointer; font-weight: 700; font-size: 12px; } .replay-button span { color: #c14f3c; margin-right: 7px; } .replay-button:disabled { opacity: .5; cursor: wait; }
+.audio-status { display: inline-block; color: #7a8a80; font: 10px 'DM Mono'; margin-left: 12px; }
+footer { display: flex; align-items: center; gap: 15px; padding: 24px 0 28px; font-size: 11px; } footer strong { font-size: 11px; font-weight: 600; } footer .rime-mark { margin-left: auto; color: #c14f3c; }
+@media (max-width: 720px) { .shell { padding: 20px 20px 0; } .topbar { align-items: flex-start; gap: 15px; } .status { text-align: right; max-width: 120px; line-height: 1.4; } .intro { padding: 57px 0 42px; } h1 { font-size: 48px; } .workspace { display: block; } .capture-panel, .brief-panel { min-height: auto; padding: 24px 22px; } .brief-panel { min-height: 500px; } .record-button { margin-top: 35px; } footer { flex-wrap: wrap; } footer .rime-mark { margin-left: 0; width: 100%; } }
