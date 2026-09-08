@@ -14,7 +14,7 @@ from openwakeword.model import Model
 
 SAMPLE_RATE = 16_000
 FRAME_SAMPLES = 1280
-WAKE_THRESHOLD = 0.25
+WAKE_THRESHOLD = 0.10
 IPC_PORT = 8799
 
 

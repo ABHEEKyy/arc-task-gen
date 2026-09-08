@@ -38,7 +38,7 @@ FRAME_SAMPLES = 1280
 BUFFER_SECONDS = 2.0
 MAX_BUFFER_FRAMES = int(BUFFER_SECONDS / (FRAME_SAMPLES / SAMPLE_RATE))
 COMMAND_SECONDS = 8
-WAKE_THRESHOLD = 0.25
+WAKE_THRESHOLD = 0.10
 
 TOOLS = [
     {
@@ -421,7 +421,7 @@ class VoiceController:
                 
                 # Check maximum score across loaded jarvis models
                 score = max([v for k, v in prediction.items() if "jarvis" in k.lower()], default=0.0)
-                if score > 0.15 and score < WAKE_THRESHOLD:
+                if score > 0.05 and score < WAKE_THRESHOLD:
                     print(f"[Mic Signal Detected] Score: {score:.2f} (Needs >= {WAKE_THRESHOLD})", flush=True)
                 if score < WAKE_THRESHOLD:
                     time.sleep(0.002)
