@@ -335,9 +335,11 @@ class VoiceController:
                     executed = True
                     break
         elif any(w in text_lower for w in ["who is", "who was", "what is", "what was", "when did", "where is", "search for", "tell me about"]):
-            from jarvis_brain import BrainTools
-            search_res = BrainTools.web_search(text_lower)
-            print(f"[Jarvis Search Results]: {search_res[:150]}...", flush=True)
+            def _async_gk():
+                from jarvis_brain import BrainTools
+                search_res = BrainTools.web_search(text_lower)
+                print(f"[Jarvis Search Results]: {search_res[:150]}...", flush=True)
+            threading.Thread(target=_async_gk, daemon=True).start()
             executed = True
         elif " on " in text_lower and any(b in text_lower for b in ["chrome", "edge", "brave", "firefox"]):
             # Browser targeted site launch e.g. "open youtube on chrome"

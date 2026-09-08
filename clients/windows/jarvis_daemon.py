@@ -33,13 +33,11 @@ def trigger_jarvis_bubble():
 
     # 2. Launch jarvis_bubble.py or Run_Jarvis.bat
     bubble_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "jarvis_bubble.py"))
-    pythonw = sys.executable.replace("python.exe", "pythonw.exe")
-    if not os.path.exists(pythonw):
-        pythonw = sys.executable
+    python_bin = sys.executable
 
     try:
         print(f">> [Auto-Opening Siri Bubble HUD]: {bubble_path}", flush=True)
-        subprocess.Popen([pythonw, bubble_path], cwd=os.path.dirname(bubble_path))
+        subprocess.Popen([python_bin, bubble_path], cwd=os.path.dirname(bubble_path))
     except Exception as e:
         print(f"[Bubble Launch Error]: {e}", flush=True)
 
