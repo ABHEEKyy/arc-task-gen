@@ -459,24 +459,31 @@ class VoiceController:
             self.audio.terminate()
 
 
-def play_chime() -> None:
-    """Plays a crisp double-tone futuristic wake chime."""
+def play_chime(frequency: int = 880, duration: float = 0.1) -> None:
+    """Plays a crisp tone or futuristic wake chime."""
     try:
         import sounddevice as sd
         import numpy as np
         sr = 44100
-        # 880Hz -> 1320Hz ascending sci-fi chime
-        t1 = np.linspace(0, 0.1, int(sr * 0.1), False)
-        t2 = np.linspace(0, 0.15, int(sr * 0.15), False)
-        tone1 = np.sin(2 * np.pi * 880 * t1) * 0.6
-        tone2 = np.sin(2 * np.pi * 1320 * t2) * 0.7
-        audio = np.concatenate([tone1, tone2]).astype(np.float32)
+        if frequency == 880 and duration == 0.1:
+            # 880Hz -> 1320Hz ascending sci-fi chime
+            t1 = np.linspace(0, 0.1, int(sr * 0.1), False)
+            t2 = np.linspace(0, 0.15, int(sr * 0.15), False)
+            tone1 = np.sin(2 * np.pi * 880 * t1) * 0.6
+            tone2 = np.sin(2 * np.pi * 1320 * t2) * 0.7
+            audio = np.concatenate([tone1, tone2]).astype(np.float32)
+        else:
+            t = np.linspace(0, duration, int(sr * duration), False)
+            audio = (np.sin(2 * np.pi * frequency * t) * 0.5).astype(np.float32)
         sd.play(audio, sr)
         sd.wait()
     except Exception:
-        import winsound
-        winsound.Beep(880, 150)
-        winsound.Beep(1320, 200)
+        try:
+            import winsound
+            winsound.Beep(int(frequency), int(duration * 1000))
+        except Exception:
+            pass
+
 
 
 def play_done_chime() -> None:
