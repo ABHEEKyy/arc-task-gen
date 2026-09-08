@@ -12,3 +12,5 @@ ddgs>=9.0.0
 websockets>=14.0
 python-dotenv>=1.0.1
 google-genai>=0.1.0
+pyttsx3>=2.90
+
