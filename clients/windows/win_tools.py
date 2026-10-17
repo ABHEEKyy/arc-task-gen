@@ -254,6 +254,35 @@ class WindowsController:
             webbrowser.open("https://www.google.com")
             return "Opened https://www.google.com"
 
+        # macOS Native App & URL launcher
+        import sys
+        if sys.platform == "darwin":
+            mac_apps = {
+                "chrome": "Google Chrome",
+                "google chrome": "Google Chrome",
+                "safari": "Safari",
+                "terminal": "Terminal",
+                "vscode": "Visual Studio Code",
+                "vs code": "Visual Studio Code",
+                "code": "Visual Studio Code",
+                "spotify": "Spotify",
+                "notes": "Notes",
+                "calculator": "Calculator",
+                "calc": "Calculator",
+                "music": "Music",
+                "finder": "Finder",
+                "slack": "Slack",
+                "discord": "Discord",
+            }
+            target_app = mac_apps.get(clean_name, clean_name)
+            res = subprocess.run(["open", "-a", target_app], capture_output=True, text=True)
+            if res.returncode == 0:
+                return f"Launched {target_app}"
+            res = subprocess.run(["open", clean_name], capture_output=True, text=True)
+            if res.returncode == 0:
+                return f"Opened {clean_name}"
+            return f"Application '{app_name}' not found on macOS."
+
         # 2. Search for exact or partial matching files across any extension
         file_path = find_file_by_name_or_partial(clean_name)
         if file_path and clean_name not in SYSTEM_COMMANDS:
@@ -292,33 +321,29 @@ class WindowsController:
         except Exception:
             pass
 
-        # 5. Cross-platform fallback: macOS 'open' / Windows 'start' / PowerShell
-        import sys
-        if sys.platform == "darwin":
-            try:
-                res = subprocess.run(["open", "-a", clean_name], capture_output=True, text=True)
-                if res.returncode == 0:
-                    return f"Launched {clean_name}"
-                res = subprocess.run(["open", clean_name], capture_output=True, text=True)
-                if res.returncode == 0:
-                    return f"Opened {clean_name}"
-                return f"Application '{app_name}' not found on macOS."
-            except Exception as e:
-                return f"Execution error: {str(e)}"
-        else:
-            try:
-                cmd = f'powershell -Command "Start-Process \'{clean_name}\'"'
-                res = subprocess.run(cmd, shell=True, capture_output=True, text=True)
-                if res.returncode == 0:
-                    return f"Launched {clean_name}"
-                else:
-                    return f"Executable or file '{app_name}' not found: {res.stderr.strip()}"
-            except Exception as e:
-                return f"Execution error: {str(e)}"
+        # 5. Fallback for Windows
+        try:
+            cmd = f'powershell -Command "Start-Process \'{clean_name}\'"'
+            res = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+            if res.returncode == 0:
+                return f"Launched {clean_name}"
+            else:
+                return f"Executable or file '{app_name}' not found: {res.stderr.strip()}"
+        except Exception as e:
+            return f"Execution error: {str(e)}"
 
 
     @staticmethod
     def system_volume(action: str, amount: int = 10) -> str:
+        import sys
+        if sys.platform == "darwin":
+            if action == "mute":
+                subprocess.run(["osascript", "-e", "set volume with output muted"], capture_output=True)
+            elif action == "up":
+                subprocess.run(["osascript", "-e", "set volume output volume ((output volume of (get volume settings)) + 10)"], capture_output=True)
+            elif action == "down":
+                subprocess.run(["osascript", "-e", "set volume output volume ((output volume of (get volume settings)) - 10)"], capture_output=True)
+            return f"Volume {action}."
         key = VOLUME_KEYS.get(action.lower())
         if not key:
             return "Volume action must be mute, up, or down."
@@ -329,6 +354,15 @@ class WindowsController:
 
     @staticmethod
     def window_management(action: str) -> str:
+        import sys
+        if sys.platform == "darwin":
+            if action == "minimize":
+                subprocess.run(["osascript", "-e", 'tell application "System Events" to keystroke "m" using {command down}'], capture_output=True)
+            elif action == "maximize":
+                subprocess.run(["osascript", "-e", 'tell application "System Events" to keystroke "f" using {control down, command down}'], capture_output=True)
+            elif action == "close":
+                subprocess.run(["osascript", "-e", 'tell application "System Events" to keystroke "w" using {command down}'], capture_output=True)
+            return f"Window {action}."
         if action == "minimize":
             pyautogui.hotkey("alt", "space")
             pyautogui.press("n")

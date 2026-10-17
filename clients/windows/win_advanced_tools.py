@@ -55,7 +55,18 @@ class SystemController:
 
         # 2. Open via requested browser executable
         browser_key = browser.lower().strip()
-        if browser_key in BROWSER_COMMANDS:
+        import sys
+        if sys.platform == "darwin":
+            mac_browsers = {"chrome": "Google Chrome", "google chrome": "Google Chrome", "safari": "Safari", "firefox": "Firefox", "brave": "Brave Browser", "edge": "Microsoft Edge"}
+            if browser_key in mac_browsers:
+                try:
+                    subprocess.Popen(["open", "-a", mac_browsers[browser_key], url])
+                    return f"Opening {clean_site or site} in {browser.title()}."
+                except Exception:
+                    pass
+            webbrowser.open(url)
+            return f"Opening {clean_site or site} in default browser."
+        elif browser_key in BROWSER_COMMANDS:
             cmd = BROWSER_COMMANDS[browser_key]
             try:
                 subprocess.Popen(f'start {cmd} "{url}"', shell=True)
