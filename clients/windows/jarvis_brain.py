@@ -6,14 +6,17 @@ class BrainTools:
     def web_search(query: str) -> str:
         """Searches the live web for recent news, scores, facts, and updates."""
         try:
-            try:
-                from ddgs import DDGS
-                with DDGS() as ddgs:
-                    results = list(ddgs.text(query, max_results=3))
-            except Exception:
-                from duckduckgo_search import DDGS
-                with DDGS() as ddgs:
-                    results = list(ddgs.text(query, max_results=3))
+            import warnings
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                try:
+                    from ddgs import DDGS
+                    with DDGS() as ddgs:
+                        results = list(ddgs.text(query, max_results=3))
+                except Exception:
+                    from duckduckgo_search import DDGS
+                    with DDGS() as ddgs:
+                        results = list(ddgs.text(query, max_results=3))
 
             if not results:
                 return "No current online results found."

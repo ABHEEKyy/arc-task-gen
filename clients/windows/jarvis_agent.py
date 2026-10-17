@@ -173,7 +173,13 @@ class JarvisAgent:
         self.ollama_model = os.getenv("OLLAMA_MODEL", "qwen2.5:1.5b")
         try:
             import ollama
-            m_list = ollama.list()
+            try:
+                m_list = ollama.list()
+            except Exception:
+                import subprocess, time
+                subprocess.Popen(["ollama", "serve"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                time.sleep(1.5)
+                m_list = ollama.list()
             models = [m.model for m in m_list.models] if hasattr(m_list, 'models') else []
             if any("qwen2.5:1.5b" in m for m in models):
                 self.ollama_model = "qwen2.5:1.5b"
