@@ -134,7 +134,29 @@ def get_local_jarvis_engine():
 
 
 def speak_jarvis(text: str) -> None:
-    """Instant TTS router: Fast Windows Native SAPI5 -> Cloud ElevenLabs"""
+    """Instant TTS router: macOS say / Fast Windows Native SAPI5 -> Cloud ElevenLabs"""
+    import re
+    clean_text = re.sub(r'[*#_`~]', '', text)
+    clean_text = re.sub(r'\\\[|\\\]|\\\(|\\\)', '', clean_text)
+    clean_text = clean_text.replace('$$', '').replace('$', '')
+    clean_text = clean_text.replace(r'\partial', 'partial ').replace(r'\nabla', 'del ').replace(r'\infty', 'infinity')
+    clean_text = re.sub(r'\s+', ' ', clean_text).strip()
+    if not clean_text:
+        return
+
+    # 0. macOS Native speech synthesis (Instant zero-delay British speech)
+    import sys, subprocess
+    if sys.platform == "darwin":
+        try:
+            subprocess.run(["say", "-v", "Daniel", clean_text], check=True)
+            return
+        except Exception:
+            try:
+                subprocess.run(["say", clean_text], check=True)
+                return
+            except Exception:
+                pass
+
     # 1. Windows Native SAPI5 (Instant Zero-Delay Execution)
     try:
         import pyttsx3
@@ -209,11 +231,17 @@ def speak_jarvis(text: str) -> None:
 
 class VoiceController:
     def __init__(self) -> None:
-        from google import genai
         gemini_key = os.getenv("GEMINI_API_KEY")
-        if not gemini_key or gemini_key == "your_gemini_api_key":
-            raise RuntimeError("Please set your GEMINI_API_KEY in .env before running Jarvis (obtain a free key from https://aistudio.google.com/).")
-        self.gclient = genai.Client(api_key=gemini_key)
+        if gemini_key and gemini_key != "your_gemini_api_key":
+            try:
+                from google import genai
+                self.gclient = genai.Client(api_key=gemini_key)
+            except Exception as ge:
+                print(f"[Gemini Client Init Note]: {ge}", flush=True)
+                self.gclient = None
+        else:
+            self.gclient = None
+            print("[Jarvis Setup]: Running with native STT & OS automation (set GEMINI_API_KEY in .env for advanced Gemini multimodal reasoning).", flush=True)
 
         try:
             from jarvis_agent import JarvisAgent
@@ -269,18 +297,19 @@ class VoiceController:
                 last_err = e
 
             # 2. Try Gemini Speech STT
-            try:
-                response = self.gclient.models.generate_content(
-                    model="gemini-1.5-flash",
-                    contents=[
-                        types.Part.from_bytes(data=audio_data, mime_type="audio/wav"),
-                        "Transcribe the audio accurately into English text. Output ONLY the raw transcribed text. If there is no audible human voice, output nothing."
-                    ]
-                )
-                if response and response.text:
-                    return (response.text or "").strip()
-            except Exception as ex:
-                last_err = ex
+            if self.gclient:
+                try:
+                    response = self.gclient.models.generate_content(
+                        model="gemini-1.5-flash",
+                        contents=[
+                            types.Part.from_bytes(data=audio_data, mime_type="audio/wav"),
+                            "Transcribe the audio accurately into English text. Output ONLY the raw transcribed text. If there is no audible human voice, output nothing."
+                        ]
+                    )
+                    if response and response.text:
+                        return (response.text or "").strip()
+                except Exception as ex:
+                    last_err = ex
 
             # 3. Try local faster-whisper if available
             try:
@@ -401,8 +430,13 @@ class VoiceController:
             win.window_management("maximize")
             executed = True
         elif not executed:
-            res = win.launch_application(text_lower)
-            print(f"[Jarvis Action]: {res}", flush=True)
+            known_apps = ["chrome", "google chrome", "safari", "spotify", "vscode", "vs code", "terminal", "notes", "music", "calculator", "discord", "slack"]
+            if text_lower in known_apps:
+                res = win.launch_application(text_lower)
+                print(f"[Jarvis Action]: {res}", flush=True)
+                executed = True
+
+        return executed
 
     def run(self) -> None:
         openwakeword.utils.download_models()
@@ -445,18 +479,6 @@ class VoiceController:
                     continue
                 print(f"\n>> [Wake Word Detected! (score: {score:.2f})]", flush=True)
                 play_chime()
-                
-                # Open terminal window for active visual execution
-                import sys, subprocess
-                try:
-                    if sys.platform == "darwin":
-                        script_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "run_jarvis.sh"))
-                        subprocess.Popen(["osascript", "-e", f'tell application "Terminal" to do script "{script_path}"'])
-                    else:
-                        bat_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "Run_Jarvis.bat"))
-                        subprocess.Popen(f'start cmd /k "{bat_path}"', shell=True)
-                except Exception as ex:
-                    print(f"[Terminal Launch Note]: {ex}", flush=True)
 
                 # 1. Greet in British Voice (Microphone stream paused during speech)
                 greeting = "What may I help you with, Sir?"
@@ -529,10 +551,10 @@ class VoiceController:
                     break
                 elif clean_command and len(clean_command) > 2 and "hello, sir" not in clean_command.lower() and "pleasure helping" not in clean_command.lower():
                     print(f">> Transcribed Command: \"{clean_command}\"", flush=True)
-                    # Always execute system action (like launching apps, volume control, window management)
-                    self.execute(clean_command)
-                    # Also pass to agent for conversational reply if agent exists
-                    if hasattr(self, 'agent') and self.agent is not None:
+                    # 1. Execute direct OS/hardware action if applicable
+                    action_done = self.execute(clean_command)
+                    # 2. If it is a conversational, teaching, or reasoning query, pass to agent
+                    if not action_done and hasattr(self, 'agent') and self.agent is not None:
                         import threading
                         threading.Thread(target=self.agent.handle_user_query, args=(clean_command,), daemon=True).start()
                 else:
@@ -573,11 +595,15 @@ def play_chime(frequency: int = 880, duration: float = 0.1) -> None:
         sd.play(audio, sr)
         sd.wait()
     except Exception:
-        try:
-            import winsound
-            winsound.Beep(int(frequency), int(duration * 1000))
-        except Exception:
-            pass
+        import sys, subprocess
+        if sys.platform == "darwin":
+            subprocess.run(["afplay", "/System/Library/Sounds/Ping.aiff"], capture_output=True)
+        else:
+            try:
+                import winsound
+                winsound.Beep(int(frequency), int(duration * 1000))
+            except Exception:
+                pass
 
 
 
@@ -592,14 +618,31 @@ def play_done_chime() -> None:
         sd.play(tone.astype(np.float32), sr)
         sd.wait()
     except Exception:
-        import winsound
-        winsound.Beep(587, 150)
+        import sys, subprocess
+        if sys.platform == "darwin":
+            subprocess.run(["afplay", "/System/Library/Sounds/Tink.aiff"], capture_output=True)
+        else:
+            try:
+                import winsound
+                winsound.Beep(587, 150)
+            except Exception:
+                pass
 
 
 def ensure_single_instance() -> object:
     """Enforce that only a single instance of the Jarvis Voice Controller terminal runs."""
-    import ctypes
     import sys
+    if sys.platform == "darwin":
+        import fcntl
+        try:
+            lock_file = open("/tmp/jarvis_voice_controller.lock", "w")
+            fcntl.flock(lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            return lock_file
+        except (IOError, BlockingIOError):
+            print("[Single Instance]: J.A.R.V.I.S. is already active and running in another window/process.", flush=True)
+            sys.exit(0)
+
+    import ctypes
     if not hasattr(ctypes, "windll"):
         return None
     mutex = ctypes.windll.kernel32.CreateMutexW(None, False, "JarvisVoiceController_SingleInstance_Mutex")

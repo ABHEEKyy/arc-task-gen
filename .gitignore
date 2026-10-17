@@ -9,4 +9,6 @@ build/
 *.log
 *.zip
 .vscode/
+.venv/
+*.db
 
